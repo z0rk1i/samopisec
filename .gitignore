@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+.shadow-cljs/
+.cpcache/
+.clj-kondo/.cache/
+.calva/
+.env
+.env.*
+*.log
+.codegraph
+.omo/
+.idea/
+*.iml
+.obsolete-files.txt
