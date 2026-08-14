@@ -26,6 +26,9 @@
   затем `xcrun simctl install booted /tmp/ios_dd/Build/Products/Debug-iphonesimulator/samopisec.app` + `xcrun simctl launch booted com.z0rk1.samopisec`
 - tmux требует явный сокет: `tmux -L samopisec`
 - Скриншот симулятора → OCR для проверки UI: `xcrun simctl io booted screenshot /tmp/ios_shot.png` + `swift /tmp/ocr.swift` (Vision VNRecognizeTextRequest)
+- **Sideload-сборки (Phase 6)** — EAS НЕ используем (делает `prebuild --clean` и стирает виджет-таргеты). Только локально:
+  - Android release APK: `source scripts/env.sh && clojure -M -m shadow.cljs.devtools.cli release app` → `cd android && ./gradlew assembleRelease` → `android/app/build/outputs/apk/release/app-release.apk` (~72M, подписан debug-ключом — ставится на любые устройства)
+  - iOS Release: `source scripts/env.sh && xcodebuild -workspace ios/samopisec.xcworkspace -scheme samopisec -configuration Release -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /tmp/ios_rel build` (JS bundle из `app/`, Metro не нужен) → `/tmp/ios_rel/Build/Products/Release-iphonesimulator/samopisec.app` (57M) + встроенный `SamopisecWidget.appex`
 - iOS виджет: после правки `targets/widget/*.swift` пересобрать `npx expo prebuild -p ios` (добавляет target в pbxproj, но стирает `ios/Pods/` — затем `pod install` в `ios/`), дальше обычный `xcodebuild`. Appex-модуль: `SamopisecWidget.appex`, bundle `com.z0rk1.samopisec.widget`, kind `SamopisecWidget`.
 - Проверка виджета на home screen: `xcrun simctl shutdown` → дописать widget-элемент в `data/Library/SpringBoard/IconState.plist` (элемент `elementType=widget`, `bundleIdentifier=com.z0rk1.samopisec.widget`, `widgetIdentifier=SamopisecWidget`, `gridSize=medium`) → `xcrun simctl boot` → скриншот + OCR (искать «Сегодня: N»). Данные виджета лежат в App Group контейнере `group.com.z0rk1.samopisec`.
 
