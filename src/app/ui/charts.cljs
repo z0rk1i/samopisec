@@ -11,7 +11,7 @@
 (defonce H 150.0)
 (defonce card-radius 12.0)
 
-(def ranges [{:k :day :label "24ч"}
+(def ranges [{:k :day :label "сегодня"}
              {:k :week :label "7д"}
              {:k :month :label "30д"}
              {:k :all :label "всё"}])

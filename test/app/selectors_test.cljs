@@ -7,10 +7,36 @@
         W (* 7 D)
         M (* 30 D)
         t0 1000000000000]
-    (is (= [(- t0 D) t0] (s/range-window :day t0)))
+    (testing ":day is a calendar-day window, not rolling 24h"
+      (let [[start end] (s/range-window :day t0)]
+        (is (= t0 end))
+        (is (= (s/start-of-day t0) start))
+        (is (< 0 (- end start) D))))
     (is (= [(- t0 W) t0] (s/range-window :week t0)))
     (is (= [(- t0 M) t0] (s/range-window :month t0)))
     (is (= [0 t0] (s/range-window :all t0)))))
+
+(deftest start-of-day-test
+  (testing "mid-afternoon maps to local midnight"
+    (let [sd (js/Date. (s/start-of-day (.getTime (js/Date. 2026 7 14 15 30 45 123))))]
+      (is (= 0 (.getHours sd)))
+      (is (= 0 (.getMinutes sd)))
+      (is (= 0 (.getSeconds sd)))
+      (is (= 2026 (.getFullYear sd)))
+      (is (= 7 (.getMonth sd)))
+      (is (= 14 (.getDate sd)))))
+  (testing "midnight stays midnight"
+    (let [d (js/Date. 2026 0 5 0 0 0 0)]
+      (is (= (.getTime d) (s/start-of-day (.getTime d)))))))
+
+(deftest day-window-filtering-test
+  (testing ":day window includes today but excludes yesterday"
+    (let [t0 (.getTime (js/Date. 2026 7 14 18 0 0))
+          [start end] (s/range-window :day t0)
+          today-ts (.getTime (js/Date. 2026 7 14 12 0 0))
+          yest-ts (.getTime (js/Date. 2026 7 13 23 59 59))]
+      (is (<= start today-ts end))
+      (is (> start yest-ts)))))
 
 (deftest series-test
   (testing "empty datapoints -> empty series with window"
