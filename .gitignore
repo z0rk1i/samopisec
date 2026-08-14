@@ -46,4 +46,4 @@ yarn-error.*
 # project-specific
 .codegraph
 .omo/
-.obsolete-files.txt
+.obsolete-files.txttarget/

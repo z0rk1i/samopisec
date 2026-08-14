@@ -8,6 +8,11 @@
                               :warnings-as-errors true}
            :devtools {:preloads [uix.preload preload]
                       :build-notify preload/build-notify}}
+          :test
+          {:target :node-test
+           :output-to "target/test/test.js"
+           :output-dir "target/test/out"
+           :ns-regexp "-test$"}}
           :panel-repro
           {:target :node-script
            :main panel-repro/run
