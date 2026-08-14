@@ -25,3 +25,25 @@
 4. iOS виджет: `@bacons/apple-targets` (`create-target widget`) — Swift WidgetKit +
    App Intent, обмен данными через App Group (UserDefaults + `ExtensionStorage`).
 5. Дистрибуция: личное приложение, sideload (эмулятор/симулятор, локальные сборки).
+
+## ADR-0002 — iOS: сборка через xcodebuild напрямую
+**Дата:** 2026-08-14
+**Статус:** accepted
+
+### Контекст
+Phase 1 — первый запуск приложения на iOS-симуляторе. `expo run:ios` конфликтует
+с уже запущенным Metro (`expo start` на 8081) и shadow-cljs watch (9630) из dev-сессии.
+Дополнительно: prebuilt React-Core 0.86.2 в поде оказался без бинарника симуляторного
+слайса (`ld: framework 'React' not found`) — download pod'а не подтянул debug-tarball.
+
+### Решение
+1. Не использовать `expo run:ios`, если Metro уже бежит — собирать `xcodebuild` напрямую
+   с `-derivedDataPath /tmp/ios_dd` и ставить через `simctl install`/`launch`.
+2. Починить prebuilt React-Core: скачать debug-tarball с Maven и распаковать его
+   в `ios/Pods/React-Core-prebuilt/` (см. handbook).
+3. Проверка UI без возможности смотреть скриншоты — OCR через Vision
+   (`VNRecognizeTextRequest`), скриншот `simctl io booted screenshot`.
+
+### Результат
+Приложение собралось и запустилось на «iPhone 17 Pro» (iOS 26.5), UI рендерится
+(экраны Кнопки/Графики), bundle отдаёт Metro (837 модулей).

@@ -10,7 +10,7 @@
 ## Фаза 1 — Каркас CLJS
 - [x] скаффолд `create-uix-app --expo`
 - [x] hello-world на Android-эмуляторе (debug APK, UI рендерится: экраны Кнопки/Графики)
-- [ ] hello-world на iOS-симуляторе
+- [x] hello-world на iOS-симуляторе
 - [x] dev-workflow: `shadow-cljs watch/release` + Expo (release собирается без ошибок)
 
 ## Фаза 2 — Данные и математика
