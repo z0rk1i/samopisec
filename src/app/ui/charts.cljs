@@ -4,6 +4,7 @@
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
             [react-native :as rn]
+            [app.chart-geom :as geom]
             ["react-native-svg" :as svg]))
 
 (defonce pad 20.0)
@@ -37,34 +38,13 @@
                        (str (.toFixed x 1) "," (.toFixed y 1)))
                      pts)))
 
-(defn- norm-points
-  "Нормализует точки {:x :y} (в канвас-координатах) к высоте панели H.
-   Возвращает {:pts упорядоченные точки, :maxy :miny}."
-  [points]
-  (let [ys (map :y points)
-        maxy (apply max 0.0 ys)
-        miny (apply min 0.0 ys)
-        span (max 1e-9 (- maxy miny))
-        norm (fn [i]
-               {:x (:x (nth points i))
-                :y (- H pad (* (- H (* 2 pad)) (/ (- (:y (nth points i)) miny) span)))})]
-    {:pts (mapv norm (range (count points)))
-     :maxy maxy
-     :miny miny}))
-
-(defn- scale-x
-  "X канваса для времени t в [start end] при ширине W."
-  [t start end W]
-  (let [span (max 1.0 (- end start))]
-    (+ pad (* (- W (* 2 pad)) (/ (- t start) span)))))
-
 (defui chart-card
   "Карточка графика: сетка, подписи осей, полилиния и опциональная заливка.
    props: {:title :points {:x :y в канвас-координатах} :color :fill? :start :end}"
   [{:keys [title points color fill? start end]}]
   (let [{:keys [width]} (rn/useWindowDimensions)
         W (max 200.0 (- width 32.0))
-        n (norm-points points)
+        n (geom/norm-points points H pad)
         pts (:pts n)
         maxy (:maxy n)
         miny (:miny n)
@@ -115,7 +95,7 @@
    нормализацию делает chart-card."
   [{:keys [cum start end W]}]
   (let [pts (map (fn [[t n]]
-                   {:x (scale-x t start end W)
+                   {:x (geom/scale-x t start end W pad)
                     :y n})
                  cum)]
     (if (empty? pts)
@@ -129,7 +109,7 @@
   "Скорость нажатий (1-я производная): [{:t :rate} ...]."
   [{:keys [rates start end W]}]
   (let [pts (map (fn [{:keys [t rate]}]
-                   {:x (scale-x t start end W)
+                   {:x (geom/scale-x t start end W pad)
                     :y rate})
                  rates)]
     (if (empty? pts)
@@ -144,7 +124,7 @@
   [{:keys [accel rates start end W]}]
   (let [n (count accel)
         xs (if (seq rates)
-             (map (fn [i] (scale-x (get-in rates [i :t]) start end W)) (range n))
+             (map (fn [i] (geom/scale-x (get-in rates [i :t]) start end W pad)) (range n))
              (map (fn [i] (+ pad (* (/ (inc i) (max 1 n)) (- W (* 2 pad))))) (range n)))
         pts (map (fn [i x] {:x x :y (nth accel i)}) (range n) xs)]
     (if (empty? pts)
