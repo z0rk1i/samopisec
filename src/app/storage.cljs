@@ -3,6 +3,7 @@
    Датaпоинты — JSONL (строка на событие), конфиг — JSON. Файлы в document dir приложения;
    в фазах 4/5 базовый путь сменится на общий (filesDir / App Group)."
   (:require [app.jsonl :as jsonl]
+            [app.contract :as contract]
             ["expo-file-system" :as fs]))
 
 (def ^:const app-group "group.com.z0rk1.samopisec")
@@ -25,11 +26,14 @@
   (make-file "config.json"))
 
 (defn read-datapoints
-  "Возвращает Promise<[datapoint]>. Поинты отсортированы по времени."
+  "Возвращает Promise<[datapoint]>. Поинты отсортированы по времени.
+   Невалидные записи отбрасываются."
   []
   (let [f (dp-file)]
     (if (.-exists f)
-      (.then (.text f) jsonl/parse-jsonl)
+      (-> (.text f)
+          (.then jsonl/parse-jsonl)
+          (.then contract/normalize-datapoints))
       (js/Promise.resolve []))))
 
 (defn append-datapoint!
@@ -42,11 +46,14 @@
             #js {:append true})))
 
 (defn read-config
-  "Возвращает Promise<config> (map {:buttons [..]}). Битый JSON -> пустой конфиг."
+  "Возвращает Promise<config> (map {:buttons [..]}). Битый JSON -> пустой конфиг,
+   невалидные кнопки отбрасываются."
   []
   (let [f (cfg-file)]
     (if (.-exists f)
-      (.then (.text f) jsonl/parse-config)
+      (-> (.text f)
+          (.then jsonl/parse-config)
+          (.then contract/normalize-config))
       (js/Promise.resolve {:buttons []}))))
 
 (defn write-config!
