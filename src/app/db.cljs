@@ -3,7 +3,7 @@
   (:require [re-frame.core :as rf]
             [app.storage :as storage]
             [app.widget :as widget]
-            [app.math :as math]))
+            [app.selectors :as selectors]))
 
 (defn default-db
   []
@@ -113,44 +113,12 @@
  :chart
  (fn [db _] (:chart db)))
 
-(defn- range-window
-  [range-k t0]
-  (case range-k
-    :day   [(- t0 math/day-ms) t0]
-    :week  [(- t0 (* 7 math/day-ms)) t0]
-    :month [(- t0 (* 30 math/day-ms)) t0]
-    :all   [0 t0]))
-
-(defn- series-dp
-  "Серии для текущего выбора: button-id + range."
-  [db]
-  (let [{:keys [range button-id]} (:chart db)
-        t0 (js/Date.now)
-        [start end] (range-window range t0)
-        dps (if (= :all button-id)
-              (:datapoints db)
-              (filter #(= button-id (:button-id %)) (:datapoints db)))
-        ts (mapv :ts dps)]
-    (if (empty? ts)
-      {:cumulative [] :rate [] :accel [] :start start :end end}
-      (assoc (math/series ts start end (math/auto-bin-size (- end start)))
-             :start start :end end))))
-
 (rf/reg-sub
  :chart/series
- (fn [db _] (series-dp db)))
-
-(defn- start-of-day
-  "Метка начала текущего дня (локально), мс."
-  []
-  (let [d (js/Date.)]
-    (.setHours d 0 0 0 0)
-    (.getTime d)))
+ (fn [db _]
+   (selectors/series (:chart db) (:datapoints db) (js/Date.now))))
 
 (rf/reg-sub
  :today/counts
  (fn [db _]
-   (let [start (start-of-day)
-         dps (filter #(>= (:ts %) start) (:datapoints db))]
-     {:total (count dps)
-      :by-button (frequencies (keep :button-id dps))})))
+   (selectors/today-counts (:datapoints db) (js/Date.now))))
