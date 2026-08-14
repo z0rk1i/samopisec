@@ -1,6 +1,7 @@
 (ns app.core
   (:require [react-native :as rn]
             ["expo" :as expo]
+            [react-native-safe-area-context :as safe-area]
             [uix.core :refer [$ defui]]
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
@@ -11,9 +12,11 @@
 
 (defui tab-bar []
   (let [screen (use-subscribe [:screen])
+        insets (safe-area/useSafeAreaInsets)
         set-opt! #(rf/dispatch [:screen/set %])]
     ($ rn/View {:style {:flex-direction :row :border-top-width 1
-                        :border-top-color "#e0e0e0"}}
+                        :border-top-color "#e0e0e0"
+                        :padding-bottom (+ 8 (.-bottom insets))}}
        (for [[k label] [[:charts "Графики"] [:config "Кнопки"]]]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! k)
@@ -26,11 +29,12 @@
 
 (defui root []
   (let [screen (use-subscribe [:screen])]
-    ($ rn/View {:style {:flex 1 :padding-top 44}}
-       (if (= screen :charts)
-         ($ charts-screen/screen)
-         ($ config-screen/screen))
-       ($ tab-bar))))
+    ($ safe-area/SafeAreaProvider
+       ($ rn/View {:style {:flex 1 :padding-top 44}}
+          (if (= screen :charts)
+            ($ charts-screen/screen)
+            ($ config-screen/screen))
+          ($ tab-bar)))))
 
 (defn ^:export init []
   (rf/dispatch-sync [:app/init])
