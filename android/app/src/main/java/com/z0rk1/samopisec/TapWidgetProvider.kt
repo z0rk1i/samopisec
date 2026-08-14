@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.util.Log
-import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
 import java.io.File
@@ -58,7 +57,7 @@ class TapWidgetProvider : AppWidgetProvider() {
       R.id.widget_slot_4, R.id.widget_slot_5, R.id.widget_slot_6
     )
     buttons.take(MAX_BUTTONS).forEachIndexed { i, button ->
-      root.addView(slots[i], buttonView(context, widgetId, button))
+      root.addView(slots[i], buttonView(context, widgetId, button, i))
     }
     return root
   }
@@ -66,13 +65,10 @@ class TapWidgetProvider : AppWidgetProvider() {
   private fun buttonView(
     context: Context,
     widgetId: Int,
-    button: JSONObject?
+    button: JSONObject,
+    requestCode: Int
   ): RemoteViews {
     val view = RemoteViews(context.packageName, R.layout.widget_button)
-    if (button == null) {
-      view.setViewVisibility(R.id.widget_button_root, View.GONE)
-      return view
-    }
     val id = button.optString("id", "")
     val label = button.optString("label", "?")
     val color = try {
@@ -80,7 +76,6 @@ class TapWidgetProvider : AppWidgetProvider() {
     } catch (e: IllegalArgumentException) {
       Color.parseColor("#1976D2")
     }
-    view.setViewVisibility(R.id.widget_button_root, View.VISIBLE)
     view.setTextViewText(R.id.widget_label, label)
     view.setInt(R.id.widget_button_root, "setBackgroundColor", color)
 
@@ -90,7 +85,7 @@ class TapWidgetProvider : AppWidgetProvider() {
       putExtra(EXTRA_WIDGET_ID, widgetId)
     }
     val pi = PendingIntent.getBroadcast(
-      context, id.hashCode(), tap,
+      context, requestCode, tap,
       PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
     view.setOnClickPendingIntent(R.id.widget_button_root, pi)
