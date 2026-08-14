@@ -12,7 +12,6 @@ import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
 import java.io.File
-import java.util.Calendar
 import java.util.UUID
 
 class TapWidgetProvider : AppWidgetProvider() {
@@ -54,10 +53,7 @@ class TapWidgetProvider : AppWidgetProvider() {
 
   fun buildViews(context: Context, widgetId: Int): RemoteViews {
     val buttons = readConfig(context)
-    val counts = todayCounts(context)
-    val total = counts.values.sum()
     val root = RemoteViews(context.packageName, R.layout.widget_layout)
-    root.setTextViewText(R.id.widget_header, if (total > 0) "Сегодня: $total" else "Samopisec")
 
     val rows = buttons.take(MAX_BUTTONS).chunked(COLUMNS)
     for (rowButtons in rows) {
@@ -65,10 +61,10 @@ class TapWidgetProvider : AppWidgetProvider() {
       val row = RemoteViews(context.packageName,
                             if (single) R.layout.widget_row_full else R.layout.widget_row)
       if (single) {
-        row.addView(R.id.widget_row_full_root, buttonView(context, widgetId, rowButtons[0], counts))
+        row.addView(R.id.widget_row_full_root, buttonView(context, widgetId, rowButtons[0]))
       } else {
-        row.addView(R.id.widget_row_left, buttonView(context, widgetId, rowButtons[0], counts))
-        row.addView(R.id.widget_row_right, buttonView(context, widgetId, rowButtons[1], counts))
+        row.addView(R.id.widget_row_left, buttonView(context, widgetId, rowButtons[0]))
+        row.addView(R.id.widget_row_right, buttonView(context, widgetId, rowButtons[1]))
       }
       root.addView(R.id.widget_grid, row)
     }
@@ -83,8 +79,7 @@ class TapWidgetProvider : AppWidgetProvider() {
   private fun buttonView(
     context: Context,
     widgetId: Int,
-    button: JSONObject?,
-    counts: Map<String, Int>
+    button: JSONObject?
   ): RemoteViews {
     val view = RemoteViews(context.packageName, R.layout.widget_button)
     if (button == null) {
@@ -100,7 +95,6 @@ class TapWidgetProvider : AppWidgetProvider() {
     }
     view.setViewVisibility(R.id.widget_button_root, View.VISIBLE)
     view.setTextViewText(R.id.widget_label, label)
-    view.setTextViewText(R.id.widget_count, counts[id]?.toString() ?: "0")
     view.setInt(R.id.widget_button_root, "setBackgroundColor", color)
 
     val tap = Intent(context, TapWidgetProvider::class.java).apply {
@@ -126,34 +120,6 @@ class TapWidgetProvider : AppWidgetProvider() {
     } catch (e: Exception) {
       emptyList()
     }
-  }
-
-  private fun todayCounts(context: Context): Map<String, Int> {
-    val file = datapointsFile(context)
-    if (!file.exists()) return emptyMap()
-
-    val cal = Calendar.getInstance().apply {
-      set(Calendar.HOUR_OF_DAY, 0)
-      set(Calendar.MINUTE, 0)
-      set(Calendar.SECOND, 0)
-      set(Calendar.MILLISECOND, 0)
-    }
-    val startToday = cal.timeInMillis
-
-    val counts = mutableMapOf<String, Int>()
-    file.forEachLine { line ->
-      if (line.isBlank()) return@forEachLine
-      try {
-        val obj = JSONObject(line)
-        if (obj.optLong("ts", 0) >= startToday) {
-          val id = obj.optString("button-id", "")
-          if (id.isNotEmpty()) counts[id] = (counts[id] ?: 0) + 1
-        }
-      } catch (e: Exception) {
-        // skip malformed line
-      }
-    }
-    return counts
   }
 
   private fun appendDatapoint(context: Context, buttonId: String) {
