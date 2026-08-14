@@ -3,6 +3,7 @@
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
             [react-native :as rn]
+            [app.storage :as storage]
             [app.contract :as contract]))
 
 (defonce colors
@@ -52,7 +53,15 @@
 
 (defui button-row [{:keys [id label color count]}]
   (let [record! #(rf/dispatch [:data/record id])
-        remove! #(do (rf/dispatch [:config/remove id]) (rf/dispatch [:config/commit]))]
+        remove! (fn []
+                  (rn/Alert.alert
+                   "Удалить кнопку?"
+                   (str "«" label "» будет удалена. История нажатий останется в данных.")
+                   #js [{:text "Отмена" :style "cancel"}
+                        {:text "Удалить" :style "destructive"
+                         :onPress (fn []
+                                    (rf/dispatch [:config/remove id])
+                                    (rf/dispatch [:config/commit]))}]))]
     ($ rn/View {:style {:flex-direction :row :align-items :center
                         :padding 10 :border-width 1 :border-color "#e0e0e0"
                         :border-radius 8 :margin-bottom 8}}
@@ -72,14 +81,28 @@
 
 (defui screen []
   (let [buttons (use-subscribe [:buttons])
-        counts (use-subscribe [:today/counts])]
+        counts (use-subscribe [:today/counts])
+        export! (fn []
+                  (-> (js/Promise.all #js [(storage/read-config) (storage/read-datapoints)])
+                      (.then (fn [res]
+                               (let [data (clj->js {:export-version 1
+                                                    :exported-at (js/Date.now)
+                                                    :config (aget res 0)
+                                                    :datapoints (aget res 1)})]
+                                 (rn/Share/share #js {:message (js/JSON.stringify data)}))))
+                      (.catch (fn [e] (js/console.warn "export failed" e)))))]
     ($ rn/View {:style {:flex 1 :padding 16}}
        ($ rn/View {:style {:flex-direction :row :align-items :baseline
                            :margin-bottom 16}}
           ($ rn/Text {:style {:font-size 24 :font-weight "700" :margin-right 8}}
              "Кнопки")
           ($ rn/Text {:style {:font-size 14 :color "#888"}}
-             (str "сегодня: " (:total counts))))
+             (str "сегодня: " (:total counts)))
+          ($ rn/View {:style {:flex 1}})
+          ($ rn/Pressable {:on-press export!
+                           :style {:padding 8 :border-width 1 :border-color "#ccc"
+                                   :border-radius 6}}
+             ($ rn/Text {:style {:color "#1976d2" :font-size 14}} "Экспорт")))
        ($ add-button-form)
        ($ rn/Text {:style {:font-size 14 :color "#888" :margin-bottom 8}}
           "Нажатия с виджета появятся здесь после синхронизации.")
