@@ -12,16 +12,4 @@
           {:target :node-test
            :output-to "target/test/test.js"
            :output-dir "target/test/out"
-           :ns-regexp "-test$"}}
-          :panel-repro
-          {:target :node-script
-           :main panel-repro/run
-           :output-to "/tmp/panel_repro.js"
-           :output-dir "/tmp/panel_repro_out"
-           :compiler-options {:warnings-as-errors false}}
-          :series-repro
-          {:target :node-script
-           :main series-repro/run
-           :output-to "/tmp/series_repro.js"
-           :output-dir "/tmp/series_repro_out"
-           :compiler-options {:warnings-as-errors false}}}}
+           :ns-regexp "-test$"}}}
