@@ -5,9 +5,18 @@
   (:require [clojure.string :as str]
             ["expo-file-system" :as fs]))
 
+(def ^:const app-group "group.com.z0rk1.samopisec")
+
+(defn- base-dir
+  "Общая директория данных. iOS: App Group контейнер (виджет читает оттуда же).
+   Android: document dir (= filesDir, оттуда читает TapWidgetProvider)."
+  []
+  (or (get fs/Paths.appleSharedContainers app-group)
+      fs/Paths.document))
+
 (defn- make-file
   [name]
-  (new fs/File fs/Paths.document name))
+  (new fs/File (base-dir) name))
 
 (defn- dp-file []
   (make-file "datapoints.jsonl"))

@@ -7,9 +7,11 @@
 - `src/app/storage.cljs` — персистентность: `datapoints.jsonl` + `config.json` (expo-file-system)
 - `src/app/ui/config.cljs` — экран настройки кнопок
 - `src/app/ui/charts.cljs` — экран графиков (react-native-svg)
-- `src/app/widget.cljs` — мост к нативному виджету (`WidgetBridge`, no-op на iOS)
+- `src/app/widget.cljs` — мост к нативному виджету (`WidgetBridge` на Android, `ExtensionStorage.reloadWidget` на iOS)
 - `android/.../TapWidgetProvider.kt` — Android виджет (AppWidgetProvider)
 - `android/.../WidgetBridgeModule.kt` + `WidgetBridgePackage.kt` — нативный модуль
+- `targets/widget/` — iOS виджет (Swift WidgetKit): `widgets.swift` (timeline + view),
+  `AppIntent.swift` (`TapButtonIntent`), `index.swift` (WidgetBundle)
 - `test/app/math_test.cljc` — тесты математики
 - `test/panel_repro.cljs` / `series_repro.cljs` — node-репро для серий и панелей
 - `app.json`, `android/`, `ios/` — нативные каталоги Expo (коммитим!)
@@ -24,6 +26,8 @@
   затем `xcrun simctl install booted /tmp/ios_dd/Build/Products/Debug-iphonesimulator/samopisec.app` + `xcrun simctl launch booted com.z0rk1.samopisec`
 - tmux требует явный сокет: `tmux -L samopisec`
 - Скриншот симулятора → OCR для проверки UI: `xcrun simctl io booted screenshot /tmp/ios_shot.png` + `swift /tmp/ocr.swift` (Vision VNRecognizeTextRequest)
+- iOS виджет: после правки `targets/widget/*.swift` пересобрать `npx expo prebuild -p ios` (добавляет target в pbxproj, но стирает `ios/Pods/` — затем `pod install` в `ios/`), дальше обычный `xcodebuild`. Appex-модуль: `SamopisecWidget.appex`, bundle `com.z0rk1.samopisec.widget`, kind `SamopisecWidget`.
+- Проверка виджета на home screen: `xcrun simctl shutdown` → дописать widget-элемент в `data/Library/SpringBoard/IconState.plist` (элемент `elementType=widget`, `bundleIdentifier=com.z0rk1.samopisec.widget`, `widgetIdentifier=SamopisecWidget`, `gridSize=medium`) → `xcrun simctl boot` → скриншот + OCR (искать «Сегодня: N»). Данные виджета лежат в App Group контейнере `group.com.z0rk1.samopisec`.
 
 ## Нюансы
 - Экран блокировки iOS: интерактивные кнопки в виджетах заблокированы платформой

@@ -47,3 +47,33 @@ Phase 1 — первый запуск приложения на iOS-симуля
 ### Результат
 Приложение собралось и запустилось на «iPhone 17 Pro» (iOS 26.5), UI рендерится
 (экраны Кнопки/Графики), bundle отдаёт Metro (837 модулей).
+
+## ADR-0003 — iOS виджет: WidgetKit + App Group
+**Дата:** 2026-08-14
+**Статус:** accepted
+
+### Контекст
+Phase 5 — интерактивный виджет рабочего стола для iOS (iOS 17+). Android-виджет уже
+работает через нативный `AppWidgetProvider` + файлы в `filesDir`. Для iOS тот же паттерн
+невозможен: виджет-расширение живёт в отдельном sandbox, общий доступ — только через
+App Group. Заодно выяснилось, что официальный модуль `expo-widgets` (SDK 57) мог бы
+упростить реализацию, но ADR-0001 зафиксировал `@bacons/apple-targets` + Swift.
+
+### Решение
+1. `targets/widget/` (Swift WidgetKit): `TimelineProvider` читает `config.json` +
+   `datapoints.jsonl` из App Group контейнера, `systemSmall`/`systemMedium`.
+2. Кнопки виджета — `Button(intent:)` с `TapButtonIntent` (AppIntent): дописывает
+   datapoint в shared JSONL и перезагружает таймлайны.
+3. App Group `group.com.z0rk1.samopisec`: app пишет через
+   `fs/Paths.appleSharedContainers` (storage.cljs, fallback на Android — `Paths.document`),
+   виджет читает через `FileManager.containerURL`.
+4. Reload виджета после изменений в app — `ExtensionStorage.reloadWidget()` из
+   `@bacons/apple-targets` (подключён через autolinking pod'а).
+5. Xcode 26 SDK: конструктор `@Parameter` в AppIntent теперь требует
+   `IntentParameter<String>` вместо простой строки — фабрика
+   `TapButtonIntent.tap(buttonId:)`, собирающая параметр через `wrappedValue`.
+
+### Результат
+Виджет отображается на home screen симулятора: OCR показывает «Сегодня: 5»,
+счётчики Чай/Кофе/Вода из shared-данных. `chronod` логирует reload
+`extensionBundleIdentifier=com.z0rk1.samopisec.widget`.

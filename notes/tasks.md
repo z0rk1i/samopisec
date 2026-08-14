@@ -27,8 +27,10 @@
 - [x] WidgetBridge нативный модуль
 
 ## Фаза 5 — iOS виджет
-- [ ] targets/widget (Swift)
-- [ ] RecordTapIntent + ExtensionStorage
+- [x] targets/widget (Swift)
+- [x] RecordTapIntent + ExtensionStorage
+- [x] App Group `group.com.z0rk1.samopisec` — данные делятся между app и виджетом
+- [x] проверка на симуляторе: виджет рендерится (Сегодня: N, счётчики кнопок)
 
 ## Фаза 6 — Сборка и документация
 - [ ] sideload-сборки (EAS / локально)
