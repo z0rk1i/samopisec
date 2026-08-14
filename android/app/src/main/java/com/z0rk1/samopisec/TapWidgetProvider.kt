@@ -3,7 +3,6 @@ package com.z0rk1.samopisec
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -22,7 +21,6 @@ class TapWidgetProvider : AppWidgetProvider() {
     const val EXTRA_BUTTON_ID = "button_id"
     const val EXTRA_WIDGET_ID = "widget_id"
     const val MAX_BUTTONS = 6
-    const val COLUMNS = 2
 
     fun configFile(context: Context): File =
       File(context.filesDir, "config.json")
@@ -44,34 +42,23 @@ class TapWidgetProvider : AppWidgetProvider() {
     val buttonId = intent.getStringExtra(EXTRA_BUTTON_ID) ?: return
     Log.d(TAG, "TAP for button=$buttonId")
     appendDatapoint(context, buttonId)
-    val manager = AppWidgetManager.getInstance(context)
-    val ids = manager.getAppWidgetIds(ComponentName(context, TapWidgetProvider::class.java))
-    for (id in ids) {
-      manager.updateAppWidget(id, buildViews(context, id))
-    }
   }
 
   fun buildViews(context: Context, widgetId: Int): RemoteViews {
     val buttons = readConfig(context)
-    val root = RemoteViews(context.packageName, R.layout.widget_layout)
-
-    val rows = buttons.take(MAX_BUTTONS).chunked(COLUMNS)
-    for (rowButtons in rows) {
-      val single = rowButtons.size == 1
-      val row = RemoteViews(context.packageName,
-                            if (single) R.layout.widget_row_full else R.layout.widget_row)
-      if (single) {
-        row.addView(R.id.widget_row_full_root, buttonView(context, widgetId, rowButtons[0]))
-      } else {
-        row.addView(R.id.widget_row_left, buttonView(context, widgetId, rowButtons[0]))
-        row.addView(R.id.widget_row_right, buttonView(context, widgetId, rowButtons[1]))
-      }
-      root.addView(R.id.widget_grid, row)
-    }
-    if (rows.isEmpty()) {
+    if (buttons.isEmpty()) {
       val empty = RemoteViews(context.packageName, R.layout.widget_empty)
       empty.setTextViewText(R.id.widget_empty_text, "Откройте приложение\nи добавьте кнопки")
-      root.addView(R.id.widget_grid, empty)
+      return empty
+    }
+
+    val root = RemoteViews(context.packageName, R.layout.widget_layout)
+    val slots = intArrayOf(
+      R.id.widget_slot_1, R.id.widget_slot_2, R.id.widget_slot_3,
+      R.id.widget_slot_4, R.id.widget_slot_5, R.id.widget_slot_6
+    )
+    buttons.take(MAX_BUTTONS).forEachIndexed { i, button ->
+      root.addView(slots[i], buttonView(context, widgetId, button))
     }
     return root
   }
