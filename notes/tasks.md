@@ -67,6 +67,25 @@
 - [x] android-sdk-shim качает реальный NDK r27b (c010951)
 - [x] ADR-0007
 
+## Сессия 2026-08-14 (поздний вечер) — тесты, контракт, рефакторинг (ADR-0008)
+- [x] A5: `:test`-сборка shadow-cljs + `npm run test` (node-test, 21 тестов / 75 утверждений)
+- [x] A3: `app.jsonl` — чистый парсинг JSONL/config (устойчив к битым строкам) + тесты
+- [x] A1: `app.contract` — контракт config.json/datapoints.jsonl (CLJS+Kotlin+Swift) + тесты
+- [x] A4: `app.selectors` — селекторы серий/today + тесты; db.subs их используют
+- [x] A2: `app.chart-geom` — нормализация точек + регресс-тест двойной нормализации
+- [x] B1: лимит 6 кнопок (счётчик N/6, отключение добавления)
+- [x] B2: экспорт конфига+данных через share-sheet
+- [x] B3: подтверждение удаления кнопки (Alert)
+- [x] B4: «сегодня» = календарный день (был скользящие 24ч)
+- [x] C1: a11y-метки (кнопки виджета, палитра, действия)
+- [x] C2: clj-kondo + `npm run lint` (0 warnings)
+- [x] C3: `app.theme` — палитра light/dark (`useColorScheme`)
+- [x] D1: `scripts/release.sh`
+- [x] D2: удалены scratch-сборки panel-repro/series-repro
+- [x] D3: README актуализирован
+- [x] E1: очередь записи в storage (сериализация тапов, warn на ошибки)
+- [x] ADR-0008
+
 ## Следующие шаги
 - [ ] тест на физических устройствах (iPhone/Android)
 - [ ] lock screen виджет (вторично по ADR-0001)
