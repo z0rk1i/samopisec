@@ -23,7 +23,6 @@ enum WidgetStore {
     let id: String
     let label: String
     let colorHex: String
-    let count: Int
   }
 
   static func loadButtons() -> [ButtonInfo] {
@@ -31,39 +30,14 @@ enum WidgetStore {
           let data = try? Data(contentsOf: url),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           let arr = json["buttons"] as? [[String: Any]] else { return [] }
-    let counts = todayCounts()
     return arr.prefix(6).compactMap { b in
       guard let id = b["id"] as? String else { return nil }
       return ButtonInfo(
         id: id,
         label: b["label"] as? String ?? "?",
-        colorHex: b["color"] as? String ?? "#1976D2",
-        count: counts[id] ?? 0
+        colorHex: b["color"] as? String ?? "#1976D2"
       )
     }
-  }
-
-  static func todayCounts() -> [String: Int] {
-    guard let url = datapointsURL(),
-          let text = try? String(contentsOf: url, encoding: .utf8) else { return [:] }
-    let start = startOfTodayMillis()
-    var counts: [String: Int] = [:]
-    for line in text.split(separator: "\n") {
-      guard let data = line.data(using: .utf8),
-            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let ts = obj["ts"] as? NSNumber,
-            ts.doubleValue >= start,
-            let id = obj["button-id"] as? String,
-            !id.isEmpty else { continue }
-      counts[id, default: 0] += 1
-    }
-    return counts
-  }
-
-  static func startOfTodayMillis() -> TimeInterval {
-    let cal = Calendar.current
-    let comps = cal.dateComponents([.year, .month, .day], from: Date())
-    return (cal.date(from: comps)?.timeIntervalSince1970 ?? 0) * 1000
   }
 
   static func appendDatapoint(buttonId: String) {
@@ -89,15 +63,13 @@ enum WidgetStore {
 struct SimpleEntry: TimelineEntry {
   let date: Date
   let buttons: [WidgetStore.ButtonInfo]
-  let total: Int
 }
 
 struct Provider: TimelineProvider {
   func placeholder(in context: Context) -> SimpleEntry {
     SimpleEntry(
       date: .now,
-      buttons: [WidgetStore.ButtonInfo(id: "1", label: "Пример", colorHex: "#1976D2", count: 3)],
-      total: 3
+      buttons: [WidgetStore.ButtonInfo(id: "1", label: "Пример", colorHex: "#1976D2")]
     )
   }
 
@@ -107,19 +79,12 @@ struct Provider: TimelineProvider {
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<SimpleEntry>) -> Void) {
     let entry = makeEntry()
-    // Пересчитывать на границе суток, чтобы счётчик «Сегодня» сбрасывался.
-    let nextMidnight = Calendar.current.nextDate(
-      after: .now,
-      matching: DateComponents(hour: 0, minute: 0, second: 0),
-      matchingPolicy: .nextTime
-    ) ?? .now.addingTimeInterval(3600)
-    completion(Timeline(entries: [entry], policy: .after(nextMidnight)))
+    // Пересчёт не реже раза в час, чтобы подхватывать изменения конфигурации.
+    completion(Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(3600))))
   }
 
   private func makeEntry() -> SimpleEntry {
-    let buttons = WidgetStore.loadButtons()
-    let total = buttons.reduce(0) { $0 + $1.count }
-    return SimpleEntry(date: .now, buttons: buttons, total: total)
+    SimpleEntry(date: .now, buttons: WidgetStore.loadButtons())
   }
 }
 
@@ -133,12 +98,6 @@ struct SamopisecEntryView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      HStack {
-        Text(entry.total > 0 ? "Сегодня: \(entry.total)" : "Samopisec")
-          .font(.headline)
-          .foregroundStyle(.primary)
-        Spacer()
-      }
       if entry.buttons.isEmpty {
         Spacer()
         Text("Откройте приложение\nи добавьте кнопки")
@@ -162,19 +121,14 @@ struct SamopisecEntryView: View {
   }
 
   private func buttonCell(_ b: WidgetStore.ButtonInfo) -> some View {
-    VStack(spacing: 2) {
-      Text(b.label)
-        .font(.caption)
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
-        .foregroundStyle(.white)
-      Text("\(b.count)")
-        .font(.title3.bold())
-        .foregroundStyle(.white)
-    }
-    .frame(maxWidth: .infinity, minHeight: 44)
-    .background(Color(hex: b.colorHex))
-    .clipShape(RoundedRectangle(cornerRadius: 8))
+    Text(b.label)
+      .font(.headline)
+      .lineLimit(1)
+      .minimumScaleFactor(0.8)
+      .foregroundStyle(.white)
+      .frame(maxWidth: .infinity, minHeight: 44)
+      .background(Color(hex: b.colorHex))
+      .clipShape(RoundedRectangle(cornerRadius: 8))
   }
 }
 
