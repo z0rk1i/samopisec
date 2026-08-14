@@ -25,10 +25,14 @@
   (make-file "config.json"))
 
 (defn- parse-jsonl
+  "Парсит JSONL, пропуская битые строки (частичная запись после сбоя)."
   [^string text]
   (->> (str/split-lines (or text ""))
        (filter seq)
-       (mapv (fn [line] (js->clj (js/JSON.parse line) :keywordize-keys true)))))
+       (keep (fn [line]
+               (try
+                 (js->clj (js/JSON.parse line) :keywordize-keys true)
+                 (catch :default _ nil))))))
 
 (defn read-datapoints
   "Возвращает Promise<[datapoint]>. Поинты отсортированы по времени."
@@ -48,15 +52,17 @@
             #js {:append true})))
 
 (defn read-config
-  "Возвращает Promise<config> (map {:buttons [..]})."
+  "Возвращает Promise<config> (map {:buttons [..]}). Битый JSON -> пустой конфиг."
   []
   (let [f (cfg-file)]
     (if (.-exists f)
       (.then (.text f)
              (fn [text]
-               (-> text
-                   (js/JSON.parse)
-                   (js->clj :keywordize-keys true))))
+               (try
+                 (-> text
+                     (js/JSON.parse)
+                     (js->clj :keywordize-keys true))
+                 (catch :default _ {:buttons []}))))
       (js/Promise.resolve {:buttons []}))))
 
 (defn write-config!

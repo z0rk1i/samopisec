@@ -28,9 +28,11 @@
  :storage/load
  (fn [_ _]
    (-> (storage/read-datapoints)
-       (.then #(rf/dispatch [:data/loaded %])))
+       (.then #(rf/dispatch [:data/loaded %]))
+       (.catch #(rf/dispatch [:data/loaded []])))
    (-> (storage/read-config)
-       (.then #(rf/dispatch [:config/loaded %])))
+       (.then #(rf/dispatch [:config/loaded %]))
+       (.catch #(rf/dispatch [:config/loaded {:buttons []}])))
    nil))
 
 (rf/reg-event-db
