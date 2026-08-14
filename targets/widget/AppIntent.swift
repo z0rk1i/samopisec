@@ -1,5 +1,4 @@
 import AppIntents
-import WidgetKit
 
 struct TapButtonIntent: AppIntent {
   static var title: LocalizedStringResource = "Нажать кнопку"
@@ -17,7 +16,6 @@ struct TapButtonIntent: AppIntent {
 
   func perform() async throws -> some IntentResult {
     WidgetStore.appendDatapoint(buttonId: buttonId)
-    WidgetCenter.shared.reloadAllTimelines()
     return .result()
   }
 }
