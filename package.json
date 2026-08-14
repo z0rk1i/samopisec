@@ -4,7 +4,8 @@
  "expo:start": "expo start",
  "cljs:dev": "clojure -M -m shadow.cljs.devtools.cli watch app",
  "cljs:release": "clojure -M -m shadow.cljs.devtools.cli release app",
- "test": ". scripts/env.sh && clojure -M -m shadow.cljs.devtools.cli compile test && node target/test/test.js"
+ "test": ". scripts/env.sh && clojure -M -m shadow.cljs.devtools.cli compile test && node target/test/test.js",
+  "lint": "clj-kondo --lint src test"
   },
   "main": "app/index.js",
   "dependencies": {

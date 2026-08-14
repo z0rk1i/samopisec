@@ -6,7 +6,6 @@
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
             [app.db]
-            [app.storage :as storage]
             [app.ui.config :as config-screen]
             [app.ui.charts :as charts-screen]))
 

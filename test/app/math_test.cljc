@@ -1,5 +1,5 @@
 (ns app.math-test
-  (:require [clojure.test :refer [deftest is testing run-tests]]
+  (:require [clojure.test :refer [deftest is]]
             [app.math :as m]))
 
 (def H m/hour-ms)

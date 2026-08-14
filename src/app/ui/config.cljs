@@ -92,7 +92,7 @@
                                                     :exported-at (js/Date.now)
                                                     :config (aget res 0)
                                                     :datapoints (aget res 1)})]
-                                 (rn/Share/share #js {:message (js/JSON.stringify data)}))))
+                                 (.share (.-Share rn) #js {:message (js/JSON.stringify data)}))))
                       (.catch (fn [e] (js/console.warn "export failed" e)))))]
     ($ rn/View {:style {:flex 1 :padding 16}}
        ($ rn/View {:style {:flex-direction :row :align-items :baseline
