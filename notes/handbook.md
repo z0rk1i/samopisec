@@ -7,8 +7,7 @@
 - `src/app/storage.cljs` — персистентность: `datapoints.jsonl` + `config.json` (expo-file-system)
 - `src/app/ui/config.cljs` — экран настройки кнопок
 - `src/app/ui/charts.cljs` — экран графиков (react-native-svg)
-- `src/app/widget.cljs` — мост к нативному виджету (`WidgetBridge` на Android, `ExtensionStorage.reloadWidget` на iOS)
-- `android/.../TapWidgetProvider.kt` — Android виджет (AppWidgetProvider)
+- `src/app/widget.cljs` — мост к нативному виджету (`WidgetBridge` на Android, `ExtensionStorage.reloadWidget` на iOS)- `android/.../TapWidgetProvider.kt` — Android виджет (AppWidgetProvider)
 - `android/.../WidgetBridgeModule.kt` + `WidgetBridgePackage.kt` — нативный модуль
 - `targets/widget/` — iOS виджет (Swift WidgetKit): `widgets.swift` (timeline + view),
   `AppIntent.swift` (`TapButtonIntent`), `index.swift` (WidgetBundle)
@@ -46,3 +45,10 @@
   нет бинарника `React` — скачать debug-tarball и распаковать:
   `curl -sL -o /tmp/rncore-debug.tar.gz https://repo1.maven.org/maven2/com/facebook/react/react-native-artifacts/0.86.2/react-native-artifacts-0.86.2-reactnative-core-debug.tar.gz`
   `tar -xzf /tmp/rncore-debug.tar.gz -C ios/Pods/React-Core-prebuilt/`
+- **Edge-to-edge (commit `ef00d0c`)**: Expo 57/RN 0.86 рисуют приложение под системной
+  навигацией Android. Фикс — `react-native-safe-area-context` (нативная зависимость,
+  пересборка native обязательна): корень в `SafeAreaProvider`, tab-bar с
+  `useSafeAreaInsets` + `:padding-bottom (+ 8 (.-bottom insets))`.
+- **Виджеты «только кнопки»**: с `6dca4f1` (Android) и `7e57d24` (iOS) виджеты не
+  показывают заголовок «Сегодня: N» и счётчики — только сами кнопки; пустая подсказка
+  «Откройте приложение…» осталась. Тап по кнопке виджета по-прежнему пишет дата-поинт.

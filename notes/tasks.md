@@ -42,7 +42,21 @@
 - [x] фикс: панели графиков → defui с props-map (устранён `[object Object] is not ISeqable`)
 - [x] фикс: `:storage/load` reg-fx → reg-event-fx (данные не загружались при старте)
 
+## Сессия 2026-08-14 — виджеты «только кнопки», фикс нав-бара
+- [x] нижние кнопки выше системной навигации Android (react-native-safe-area-context, commit ef00d0c)
+- [x] кнопка «Графики» на Android снова работает (панель не перекрывалась)
+- [x] Android-виджет: только кнопки, без заголовка/счётчиков (commit 6dca4f1)
+- [x] iOS-виджет: только кнопки, без заголовка/счётчиков (commit 7e57d24)
+- [x] README.md (commit aa21529)
+- [x] релизы пересобраны: Android APK 73M, iOS Release 57M + виджет
+
+## Сессия 2026-08-14 (вечер) — статичный Android-виджет
+- [x] Android-виджет: фиксированная сетка 2×3, по одной кнопке на каждый тип (widget_layout.xml + TapWidgetProvider)
+- [x] Android-виджет не перерисовывается по тапу (onReceive пишет только дата-поинт, как iOS)
+- [x] нажатие «Жми» в приложении не трогает виджет (уберён `:widget/refresh` из `:data/record`)
+- [x] ADR-0006, release APK пересобран
+
 ## Следующие шаги
 - [ ] тест на физических устройствах (iPhone/Android)
 - [ ] lock screen виджет (вторично по ADR-0001)
-- [ ] README/дистрибуция
+- [ ] разобраться с iOS app/widget desync (app читает Documents, виджет — app group; см. ADR-0005 / память #24)
