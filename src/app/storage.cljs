@@ -2,7 +2,7 @@
   "Персистентность дата-поинтов и конфига кнопок через expo-file-system.
    Датaпоинты — JSONL (строка на событие), конфиг — JSON. Файлы в document dir приложения;
    в фазах 4/5 базовый путь сменится на общий (filesDir / App Group)."
-  (:require [clojure.string :as str]
+  (:require [app.jsonl :as jsonl]
             ["expo-file-system" :as fs]))
 
 (def ^:const app-group "group.com.z0rk1.samopisec")
@@ -24,22 +24,12 @@
 (defn- cfg-file []
   (make-file "config.json"))
 
-(defn- parse-jsonl
-  "Парсит JSONL, пропуская битые строки (частичная запись после сбоя)."
-  [^string text]
-  (->> (str/split-lines (or text ""))
-       (filter seq)
-       (keep (fn [line]
-               (try
-                 (js->clj (js/JSON.parse line) :keywordize-keys true)
-                 (catch :default _ nil))))))
-
 (defn read-datapoints
   "Возвращает Promise<[datapoint]>. Поинты отсортированы по времени."
   []
   (let [f (dp-file)]
     (if (.-exists f)
-      (.then (.text f) parse-jsonl)
+      (.then (.text f) jsonl/parse-jsonl)
       (js/Promise.resolve []))))
 
 (defn append-datapoint!
@@ -56,13 +46,7 @@
   []
   (let [f (cfg-file)]
     (if (.-exists f)
-      (.then (.text f)
-             (fn [text]
-               (try
-                 (-> text
-                     (js/JSON.parse)
-                     (js->clj :keywordize-keys true))
-                 (catch :default _ {:buttons []}))))
+      (.then (.text f) jsonl/parse-config)
       (js/Promise.resolve {:buttons []}))))
 
 (defn write-config!
