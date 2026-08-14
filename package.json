@@ -4,7 +4,7 @@
  "expo:start": "expo start",
  "cljs:dev": "clojure -M -m shadow.cljs.devtools.cli watch app",
  "cljs:release": "clojure -M -m shadow.cljs.devtools.cli release app",
- "test": "clojure -M -m shadow.cljs.devtools.cli compile test && node target/test/test.js"
+ "test": ". scripts/env.sh && clojure -M -m shadow.cljs.devtools.cli compile test && node target/test/test.js"
   },
   "main": "app/index.js",
   "dependencies": {
