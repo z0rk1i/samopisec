@@ -5,8 +5,6 @@
             [app.widget :as widget]
             [app.math :as math]))
 
-(defonce day-ms (* 24 3600000))
-
 (defn default-db
   []
   {:screen :config
@@ -118,9 +116,9 @@
 (defn- range-window
   [range-k t0]
   (case range-k
-    :day   [(- t0 day-ms) t0]
-    :week  [(- t0 (* 7 day-ms)) t0]
-    :month [(- t0 (* 30 day-ms)) t0]
+    :day   [(- t0 math/day-ms) t0]
+    :week  [(- t0 (* 7 math/day-ms)) t0]
+    :month [(- t0 (* 30 math/day-ms)) t0]
     :all   [0 t0]))
 
 (defn- series-dp
