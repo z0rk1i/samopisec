@@ -20,6 +20,8 @@
        (for [[k label] [[:charts "Графики"] [:config "Кнопки"]]]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! k)
+                          :accessibility-label label
+                          :accessibility-role "tab"
                           :style {:flex 1 :padding-vertical 12 :align-items :center
                                   :background-color (if (= k screen) "#f0f0f0" "#fff")}}
             ($ rn/Text {:style {:font-size 16

@@ -112,6 +112,7 @@ struct SamopisecEntryView: View {
             Button(intent: TapButtonIntent.tap(b.id)) {
               buttonCell(b)
             }
+            .accessibilityLabel(b.label)
           }
         }
         Spacer(minLength: 0)

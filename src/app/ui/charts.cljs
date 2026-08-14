@@ -141,6 +141,7 @@
        (for [{:keys [k label]} ranges]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! :range k)
+                          :accessibility-label (str "Диапазон " label)
                           :style {:padding-horizontal 12 :padding-vertical 6
                                   :border-radius 16 :margin-right 8
                                   :background-color (if (= k (:range chart)) "#1976d2" "#eee")}}
@@ -153,6 +154,7 @@
         set-opt! #(rf/dispatch [:chart/set %1 %2])]
     ($ rn/View {:style {:flex-direction :row :flex-wrap :wrap :margin-bottom 8}}
        ($ rn/Pressable {:on-press #(set-opt! :button-id :all)
+                        :accessibility-label "Фильтр: все кнопки"
                         :style {:padding-horizontal 12 :padding-vertical 6
                                 :border-radius 16 :margin-right 8 :margin-bottom 4
                                 :background-color (if (= :all (:button-id chart)) "#1976d2" "#eee")}}
@@ -161,6 +163,7 @@
        (for [b buttons]
          ($ rn/Pressable {:key (:id b)
                           :on-press #(set-opt! :button-id (:id b))
+                          :accessibility-label (str "Фильтр: " (:label b))
                           :style {:padding-horizontal 12 :padding-vertical 6
                                   :border-radius 16 :margin-right 8 :margin-bottom 4
                                   :background-color (if (= (:id b) (:button-id chart)) "#1976d2" "#eee")}}
@@ -174,6 +177,7 @@
        (for [[k label] [[:show-rate "Скорость"] [:show-accel "Ускорение"]]]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! k (not (get chart k)))
+                          :accessibility-label label
                           :style {:padding-horizontal 12 :padding-vertical 6
                                   :border-radius 16 :margin-right 8
                                   :background-color (if (get chart k) "#8e24aa" "#eee")}}

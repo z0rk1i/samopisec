@@ -32,6 +32,7 @@
           (for [c colors]
             ($ rn/Pressable {:key c
                              :on-press #(set-color! c)
+                             :accessibility-label (str "Цвет " c)
                              :style {:width 32 :height 32 :border-radius 16
                                      :background-color c :margin-right 8
                                      :border-width (if (= c *color) 3 0)
@@ -71,10 +72,12 @@
        ($ rn/Text {:style {:font-size 14 :color "#888" :margin-right 12}}
           (if (zero? count) "0" (str count)))
        ($ rn/Pressable {:on-press record!
+                        :accessibility-label (str "Записать нажатие «" label "»")
                         :style {:padding 8 :background-color "#43a047"
                                 :border-radius 6 :margin-right 8}}
           ($ rn/Text {:style {:color "#fff"}} "Жми"))
        ($ rn/Pressable {:on-press remove!
+                        :accessibility-label (str "Удалить кнопку «" label "»")
                         :style {:padding 8 :background-color "#eee"
                                 :border-radius 6}}
           ($ rn/Text {:style {:color "#c62828"}} "✕")))))
@@ -100,6 +103,7 @@
              (str "сегодня: " (:total counts)))
           ($ rn/View {:style {:flex 1}})
           ($ rn/Pressable {:on-press export!
+                           :accessibility-label "Экспорт данных"
                            :style {:padding 8 :border-width 1 :border-color "#ccc"
                                    :border-radius 6}}
              ($ rn/Text {:style {:color "#1976d2" :font-size 14}} "Экспорт")))
