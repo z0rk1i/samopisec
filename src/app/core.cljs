@@ -6,15 +6,17 @@
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
             [app.db]
+            [app.theme :as theme]
             [app.ui.config :as config-screen]
             [app.ui.charts :as charts-screen]))
 
 (defui tab-bar []
-  (let [screen (use-subscribe [:screen])
+  (let [t (theme/use-theme)
+        screen (use-subscribe [:screen])
         insets (safe-area/useSafeAreaInsets)
         set-opt! #(rf/dispatch [:screen/set %])]
     ($ rn/View {:style {:flex-direction :row :border-top-width 1
-                        :border-top-color "#e0e0e0"
+                        :border-top-color (:border t)
                         :padding-bottom (+ 8 (.-bottom insets))}}
        (for [[k label] [[:charts "Графики"] [:config "Кнопки"]]]
          ($ rn/Pressable {:key k
@@ -22,9 +24,9 @@
                           :accessibility-label label
                           :accessibility-role "tab"
                           :style {:flex 1 :padding-vertical 12 :align-items :center
-                                  :background-color (if (= k screen) "#f0f0f0" "#fff")}}
+                                  :background-color (if (= k screen) (:accent-soft t) (:card t))}}
             ($ rn/Text {:style {:font-size 16
-                                :color (if (= k screen) "#1976d2" "#666")
+                                :color (if (= k screen) (:accent t) (:text-secondary t))
                                 :font-weight (if (= k screen) "600" "400")}}
                label))))))
 
