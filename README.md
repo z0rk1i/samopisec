@@ -12,7 +12,7 @@
 - Экран **Кнопки**: создание/удаление настраиваемых кнопок (название, цвет),
   счётчики нажатий «сегодня» per-кнопка.
 - Экран **Графики**: накопленные нажатия, скорость и ускорение (react-native-svg),
-  периоды «все / 7д / 30д / 24ч».
+  периоды «сегодня / 7д / 30д / всё», фильтр по кнопкам.
 - **Android-виджет** (AppWidget): кнопки на домашнем экране, тап пишет data-point,
   приложение и виджет читают общий `datapoints.jsonl`.
 - **iOS-виджет** (WidgetKit, iOS 17+): кнопки через App Intent, обмен данными через
@@ -54,10 +54,15 @@ EAS не используется (делает `prebuild --clean` и стира
 
 **Android release APK:**
 ```shell
+./scripts/release.sh   # NDK-shim → cljs:release → gradlew assembleRelease
+# → android/app/build/outputs/apk/release/app-release.apk (~76M, подписан debug-ключом)
+```
+
+Пошагово (для отладки):
+```shell
 source scripts/env.sh
 npm run cljs:release
 cd android && ./gradlew assembleRelease
-# → android/app/build/outputs/apk/release/app-release.apk (~73M, подписан debug-ключом)
 ```
 
 **iOS Release:**
@@ -74,15 +79,22 @@ xcodebuild -workspace ios/samopisec.xcworkspace -scheme samopisec -configuration
 ## Тесты
 
 ```shell
-clojure -M -e "(require 'app.math-test)(clojure.test/run-tests 'app.math-test)"
+npm run test   # shadow-cljs :test (node-test): 21 тестов / 75 утверждений
+npm run lint   # clj-kondo: src + test
 ```
 
 ## Структура проекта
 
 - `src/app/core.cljs` — точка входа, таб-бар (Кнопки / Графики), корневой компонент
-- `src/app/db.cljs` — re-frame: db, события, подписки, селекторы серий
+- `src/app/db.cljs` — re-frame: db, события, подписки
 - `src/app/math.cljc` — чистая математика (бины, кумулятивная кривая, производные)
+- `src/app/selectors.cljs` — селекторы серий (окна диапазонов, today-счётчики)
+- `src/app/chart-geom.cljc` — нормализация/масштабирование точек графика
+- `src/app/contract.cljc` — контракт данных (config.json / datapoints.jsonl) — единый
+  формат для CLJS + Kotlin + Swift
+- `src/app/jsonl.cljs` — чистый парсинг JSONL / config (устойчив к битым строкам)
 - `src/app/storage.cljs` — персистентность: `datapoints.jsonl` + `config.json`
+- `src/app/theme.cljs` — палитра цветов (light/dark по системной схеме)
 - `src/app/ui/config.cljs` — экран настройки кнопок
 - `src/app/ui/charts.cljs` — экран графиков
 - `src/app/widget.cljs` — мост к нативному виджету
@@ -90,7 +102,8 @@ clojure -M -e "(require 'app.math-test)(clojure.test/run-tests 'app.math-test)"
 - `android/.../WidgetBridgeModule.kt` — нативный модуль (refresh виджета после commit)
 - `targets/widget/` — iOS-виджет: `widgets.swift` (timeline + view), `AppIntent.swift`,
   `index.swift` (WidgetBundle)
-- `test/app/math_test.cljc` — тесты математики
+- `test/app/` — cljs-тесты: math, selectors, chart-geom, jsonl, contract
+- `scripts/release.sh` — одна команда для Android release APK
 - `notes/` — Obsidian vault проекта (решения, задачи, handbook)
 
 ## Виджеты
