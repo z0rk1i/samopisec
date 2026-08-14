@@ -40,7 +40,7 @@
           ($ rn/Text {:style {:color "#fff" :font-size 16 :font-weight "600"}}
              "Добавить")))))
 
-(defui button-row [{:keys [id label color]}]
+(defui button-row [{:keys [id label color count]}]
   (let [record! #(do (rf/dispatch [:data/record id]) (rf/dispatch [:config/commit]))
         remove! #(do (rf/dispatch [:config/remove id]) (rf/dispatch [:config/commit]))]
     ($ rn/View {:style {:flex-direction :row :align-items :center
@@ -49,6 +49,8 @@
        ($ rn/View {:style {:width 16 :height 16 :border-radius 8
                            :background-color color :margin-right 10}})
        ($ rn/Text {:style {:flex 1 :font-size 16}} label)
+       ($ rn/Text {:style {:font-size 14 :color "#888" :margin-right 12}}
+          (if (zero? count) "0" (str count)))
        ($ rn/Pressable {:on-press record!
                         :style {:padding 8 :background-color "#43a047"
                                 :border-radius 6 :margin-right 8}}
@@ -59,10 +61,15 @@
           ($ rn/Text {:style {:color "#c62828"}} "✕")))))
 
 (defui screen []
-  (let [buttons (use-subscribe [:buttons])]
+  (let [buttons (use-subscribe [:buttons])
+        counts (use-subscribe [:today/counts])]
     ($ rn/View {:style {:flex 1 :padding 16}}
-       ($ rn/Text {:style {:font-size 24 :font-weight "700" :margin-bottom 16}}
-          "Кнопки")
+       ($ rn/View {:style {:flex-direction :row :align-items :baseline
+                           :margin-bottom 16}}
+          ($ rn/Text {:style {:font-size 24 :font-weight "700" :margin-right 8}}
+             "Кнопки")
+          ($ rn/Text {:style {:font-size 14 :color "#888"}}
+             (str "сегодня: " (:total counts))))
        ($ add-button-form)
        ($ rn/Text {:style {:font-size 14 :color "#888" :margin-bottom 8}}
           "Нажатия с виджета появятся здесь после синхронизации.")
@@ -71,4 +78,5 @@
             "Пока нет кнопок — добавьте первую выше.")
          (for [b buttons]
            ($ button-row {:key (:id b) :id (:id b)
-                          :label (:label b) :color (:color b)}))))))
+                          :label (:label b) :color (:color b)
+                          :count (get (:by-button counts) (:id b) 0)}))))))

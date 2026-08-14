@@ -24,13 +24,14 @@
  (fn [_ _]
    (default-db)))
 
-(rf/reg-fx
+(rf/reg-event-fx
  :storage/load
- (fn [_]
+ (fn [_ _]
    (-> (storage/read-datapoints)
        (.then #(rf/dispatch [:data/loaded %])))
    (-> (storage/read-config)
-       (.then #(rf/dispatch [:config/loaded %])))))
+       (.then #(rf/dispatch [:config/loaded %])))
+   nil))
 
 (rf/reg-event-db
  :config/loaded
@@ -139,3 +140,18 @@
 (rf/reg-sub
  :chart/series
  (fn [db _] (series-dp db)))
+
+(defn- start-of-day
+  "Метка начала текущего дня (локально), мс."
+  []
+  (let [d (js/Date.)]
+    (.setHours d 0 0 0 0)
+    (.getTime d)))
+
+(rf/reg-sub
+ :today/counts
+ (fn [db _]
+   (let [start (start-of-day)
+         dps (filter #(>= (:ts %) start) (:datapoints db))]
+     {:total (count dps)
+      :by-button (frequencies (keep :button-id dps))})))
