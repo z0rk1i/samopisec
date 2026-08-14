@@ -111,12 +111,12 @@
                (fmt-time end)))))))
 
 (defui cumulative-panel
-  "Кумулятивная кривая: [[t n] ...]."
+  "Кумулятивная кривая: [[t n] ...]. Y передаётся в сыром виде (количество),
+   нормализацию делает chart-card."
   [{:keys [cum start end W]}]
-  (let [maxn (apply max 0 (map second cum))
-        pts (map (fn [[t n]]
+  (let [pts (map (fn [[t n]]
                    {:x (scale-x t start end W)
-                    :y (- H pad (* (- H (* 2 pad)) (if (zero? maxn) 0 (/ n maxn))))})
+                    :y n})
                  cum)]
     (if (empty? pts)
       ($ rn/Text {:style {:color "#999" :font-size 13 :margin-bottom 12}}
