@@ -36,14 +36,29 @@
           (.then contract/normalize-datapoints))
       (js/Promise.resolve []))))
 
+(defonce ^:private write-queue (js/Promise.resolve nil))
+
+(defn- enqueue!
+  "Ставит асинхронную файловую операцию в очередь — гарантирует порядок записи
+   и логирует ошибки, не разрывая цепочку."
+  [op]
+  (set! write-queue
+        (-> write-queue
+            (.then (fn [] (op)))
+            (.catch (fn [e] (js/console.warn "storage write failed" e)))))
+  write-queue)
+
 (defn append-datapoint!
-  "Синхронно дописывает строку datapoint в JSONL."
+  "Дописывает строку datapoint в JSONL через очередь записи
+   (сериализует быстрые тапы, ловит ошибки)."
   [dp]
-  (let [f (dp-file)]
-    (when-not (.-exists f)
-      (.create f))
-    (.write f (str (js/JSON.stringify (clj->js dp)) "\n")
-            #js {:append true})))
+  (enqueue!
+   (fn []
+     (let [f (dp-file)]
+       (when-not (.-exists f)
+         (.create f))
+       (.write f (str (js/JSON.stringify (clj->js dp)) "\n")
+               #js {:append true})))))
 
 (defn read-config
   "Возвращает Promise<config> (map {:buttons [..]}). Битый JSON -> пустой конфиг,
@@ -57,12 +72,14 @@
       (js/Promise.resolve {:buttons []}))))
 
 (defn write-config!
-  "Синхронно сохраняет конфиг кнопок."
+  "Сохраняет конфиг кнопок через очередь записи."
   [cfg]
-  (let [f (cfg-file)]
-    (when-not (.-exists f)
-      (.create f))
-    (.write f (js/JSON.stringify (clj->js cfg)))))
+  (enqueue!
+   (fn []
+     (let [f (cfg-file)]
+       (when-not (.-exists f)
+         (.create f))
+       (.write f (js/JSON.stringify (clj->js cfg)))))))
 
 (defn new-id
   []
