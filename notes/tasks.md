@@ -8,23 +8,23 @@
 - [x] Xcode 26.6, JDK 26 (brew openjdk@26) — env в `scripts/env.sh`
 
 ## Фаза 1 — Каркас CLJS
-- [ ] скаффолд `create-uix-app --expo`
-- [ ] hello-world на Android-эмуляторе
+- [x] скаффолд `create-uix-app --expo`
+- [x] hello-world на Android-эмуляторе (debug APK, UI рендерится: экраны Кнопки/Графики)
 - [ ] hello-world на iOS-симуляторе
-- [ ] dev-workflow: `shadow-cljs watch` + Expo
+- [x] dev-workflow: `shadow-cljs watch/release` + Expo (release собирается без ошибок)
 
 ## Фаза 2 — Данные и математика
-- [ ] `math.cljs`: кумулятивная кривая, бинирование, 1-я/2-я производные
-- [ ] cljs.test
-- [ ] `storage.cljs` + re-frame события
+- [x] `math.cljc`: кумулятивная кривая, бинирование, 1-я/2-я производные
+- [x] cljs.test (7 тестов / 16 утверждений, все проходят)
+- [x] `storage.cljs` + re-frame события (JSONL + конфиг, fx-обработчики)
 
 ## Фаза 3 — UI
-- [ ] экран настройки кнопок
-- [ ] экран графиков (react-native-svg)
+- [x] экран настройки кнопок (`src/app/ui/config.cljs`)
+- [x] экран графиков (`src/app/ui/charts.cljs`, react-native-svg)
 
 ## Фаза 4 — Android виджет
-- [ ] TapWidgetProvider (Kotlin)
-- [ ] WidgetBridge нативный модуль
+- [x] TapWidgetProvider (Kotlin)
+- [x] WidgetBridge нативный модуль
 
 ## Фаза 5 — iOS виджет
 - [ ] targets/widget (Swift)
