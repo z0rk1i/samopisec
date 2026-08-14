@@ -41,7 +41,7 @@
              "Добавить")))))
 
 (defui button-row [{:keys [id label color count]}]
-  (let [record! #(do (rf/dispatch [:data/record id]) (rf/dispatch [:config/commit]))
+  (let [record! #(rf/dispatch [:data/record id])
         remove! #(do (rf/dispatch [:config/remove id]) (rf/dispatch [:config/commit]))]
     ($ rn/View {:style {:flex-direction :row :align-items :center
                         :padding 10 :border-width 1 :border-color "#e0e0e0"
