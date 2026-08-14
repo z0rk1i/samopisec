@@ -83,8 +83,7 @@
  (fn [{:keys [db]} [_ button-id]]
    (let [dp {:id (storage/new-id) :button-id button-id :ts (js/Date.now)}]
      (storage/append-datapoint! dp)
-     {:db (update db :datapoints conj dp)
-      :widget/refresh nil})))
+     {:db (update db :datapoints conj dp)})))
 
 (rf/reg-event-db
  :screen/set
