@@ -27,14 +27,18 @@
                                 :font-weight (if (= k screen) "600" "400")}}
                label))))))
 
+(defui content []
+  (let [screen (use-subscribe [:screen])
+        insets (safe-area/useSafeAreaInsets)]
+    ($ rn/View {:style {:flex 1 :padding-top (.-top insets)}}
+       (if (= screen :charts)
+         ($ charts-screen/screen)
+         ($ config-screen/screen))
+       ($ tab-bar))))
+
 (defui root []
-  (let [screen (use-subscribe [:screen])]
-    ($ safe-area/SafeAreaProvider
-       ($ rn/View {:style {:flex 1 :padding-top 44}}
-          (if (= screen :charts)
-            ($ charts-screen/screen)
-            ($ config-screen/screen))
-          ($ tab-bar)))))
+  ($ safe-area/SafeAreaProvider
+     ($ content)))
 
 (defn ^:export init []
   (rf/dispatch-sync [:app/init])
