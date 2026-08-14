@@ -2,7 +2,8 @@
   (:require [uix.core :refer [$ defui]]
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
-            [react-native :as rn]))
+            [react-native :as rn]
+            [app.contract :as contract]))
 
 (defonce colors
   ["#e53935" "#fb8c00" "#fdd835" "#43a047"
@@ -10,10 +11,16 @@
 
 (defui add-button-form []
   (let [[*label set-label!] (uix.core/use-state "")
-        [*color set-color!] (uix.core/use-state (first colors))]
+        [*color set-color!] (uix.core/use-state (first colors))
+        buttons (use-subscribe [:buttons])
+        at-limit? (>= (count buttons) contract/max-buttons)]
     ($ rn/View {:style {:margin-bottom 16}}
-       ($ rn/Text {:style {:font-size 16 :font-weight "600" :margin-bottom 8}}
-          "Новая кнопка")
+       ($ rn/View {:style {:flex-direction :row :align-items :baseline
+                           :margin-bottom 8}}
+          ($ rn/Text {:style {:font-size 16 :font-weight "600" :margin-right 8}}
+             "Новая кнопка")
+          ($ rn/Text {:style {:font-size 13 :color "#888"}}
+             (str (count buttons) "/" contract/max-buttons)))
        ($ rn/TextInput {:value *label
                         :on-change-text set-label!
                         :placeholder "Название (например «Чай»)"
@@ -28,14 +35,17 @@
                                      :background-color c :margin-right 8
                                      :border-width (if (= c *color) 3 0)
                                      :border-color "#000"}})))
+       (when at-limit?
+         ($ rn/Text {:style {:color "#c62828" :font-size 13 :margin-top 8}}
+            "Достигнут лимит кнопок — виджет вмещает 6"))
        ($ rn/Pressable {:on-press (fn []
-                                    (when (seq *label)
+                                    (when (and (seq *label) (not at-limit?))
                                       (rf/dispatch [:config/add *label *color])
                                       (rf/dispatch [:config/commit])
                                       (set-label! "")
                                       (set-color! (first colors))))
-                        :style {:background-color "#1976d2" :padding 12
-                                :border-radius 8 :margin-top 12
+                        :style {:background-color (if (or at-limit? (empty? *label)) "#bbb" "#1976d2")
+                                :padding 12 :border-radius 8 :margin-top 12
                                 :align-items :center}}
           ($ rn/Text {:style {:color "#fff" :font-size 16 :font-weight "600"}}
              "Добавить")))))
