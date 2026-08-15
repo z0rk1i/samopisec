@@ -123,11 +123,11 @@
                   (rn/Alert.alert
                    (i18n/t :delete/title)
                    (i18n/tf :delete/body label)
-                   #js [{:text (i18n/t :delete/abort) :style "cancel"}
-                        {:text (i18n/t :delete/confirm) :style "destructive"
-                         :onPress (fn []
-                                    (rf/dispatch [:config/remove id])
-                                    (rf/dispatch [:config/commit]))}]))]
+                   (clj->js [{:text (i18n/t :delete/abort) :style "cancel"}
+                             {:text (i18n/t :delete/confirm) :style "destructive"
+                              :onPress (fn []
+                                         (rf/dispatch [:config/remove id])
+                                         (rf/dispatch [:config/commit]))}])))]
     ($ rn/View {:style {:margin-bottom 8}}
        ($ rn/View {:style {:flex-direction :row :align-items :center
                            :padding 10 :border-width 1 :border-color (:border t)
