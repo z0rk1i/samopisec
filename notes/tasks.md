@@ -102,8 +102,9 @@
       осталось: настроить бесплатный Apple personal team для provisioning с App Group
       capability (на team-less симуляторных сборках runtime не резолвит контейнер)
 - [ ] тест на физических устройствах: Android (adb), iOS (developer-provisioning, без EAS)
-- [ ] гонка записи `datapoints.jsonl` Android: виджет (Java appendText) vs приложение
-      (expo-file-system) → сериализовать доступ
+- [x] гонка записи `datapoints.jsonl` Android: виджет (Java appendText) vs приложение
+      (expo-file-system) → сериализовать доступ — проверено: обе стороны одиночный
+      атомарный append (O_APPEND), перемешивания нет
 
 ### P2 — Данные
 - [ ] чтение всего JSONL при старте/графиках → компакция/архив старых поинтов,

@@ -197,10 +197,19 @@
        ($ add-button-form)
        ($ rn/Text {:style {:font-size 14 :color (:text-secondary t) :margin-bottom 8}}
           "Нажатия с виджета появятся здесь после синхронизации.")
-       (if (empty? buttons)
-         ($ rn/Text {:style {:font-size 16 :color (:text-faint t)}}
-            "Пока нет кнопок — добавьте первую выше.")
-         (for [b buttons]
-           ($ button-row {:key (:id b) :id (:id b)
-                          :label (:label b) :color (:color b)
-                          :count (get (:by-button counts) (:id b) 0)}))))))
+(if (empty? buttons)
+          ($ rn/View {:style {:border-width 1 :border-color (:border t)
+                              :border-radius 10 :padding 16
+                              :background-color (:card t) :margin-top 8}}
+             ($ rn/Text {:style {:font-size 16 :font-weight "600" :color (:text t)}}
+                "С чего начать")
+             ($ rn/Text {:style {:font-size 14 :color (:text-secondary t)
+                                 :margin-top 8 :line-height 20}}
+                "1. Добавьте кнопку выше — например «Чай» или «Кофе».\n"
+                "2. На главном экране: удерживайте палец → «Виджеты» → Samopisec.\n"
+                "3. Тапайте по кнопкам на виджете — каждое нажатие записывается.\n"
+                "Графики и статистика обновляются автоматически."))
+          (for [b buttons]
+            ($ button-row {:key (:id b) :id (:id b)
+                           :label (:label b) :color (:color b)
+                           :count (get (:by-button counts) (:id b) 0)}))))))
