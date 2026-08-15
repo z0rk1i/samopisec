@@ -121,12 +121,12 @@
 - [ ] iOS Live Activity / Lock Screen — вторично (ADR-0001)
 
 ### P4 — UX
-- [ ] i18n: вынести хардкод-строки в словарь
-- [ ] онбординг / пустые состояния
-- [ ] эмодзи в label, иконка приложения
+- [x] i18n: словарь `app/i18n` (RU), `t`/`tf`-шаблоны; добавление языка — новая карта
+- [x] онбординг / пустые состояния
+- [x] эмодзи в label (уже работали), иконка приложения + adaptive + сплэш (тёмная, 2×3 кнопки)
 
 ### P5 — Инженерия
-- [ ] native-тесты контракта (Kotlin/Swift)
+- [x] native-тесты контракта: Kotlin JUnit 6/6, Swift 9/9, `scripts/native-tests.sh`
 - [x] валидация config.json в нативе: Kotlin/Swift пропускают кнопки без id/label
       (битая кнопка больше не роняет весь виджет в empty)
-- [ ] CI: тесты + lint + сборки по push
+- [x] CI: `.github/workflows/ci.yml` — CLJS lint+тесты, Swift и Kotlin unit-тесты
