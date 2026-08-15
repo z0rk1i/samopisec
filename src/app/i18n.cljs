@@ -70,7 +70,19 @@
    :charts/range-day "сегодня"
    :charts/range-week "7д"
    :charts/range-month "30д"
-   :charts/range-all "всё"})
+   :charts/range-all "всё"
+   :charts/range-accessibility "Диапазон %s"
+   :charts/cumulative-title "Накопленные нажатия"
+   :charts/cumulative-empty "Накопленные нажатия: нет данных за выбранный период"
+   :charts/rate-title "Скорость (1/ч)"
+   :charts/rate-empty "Скорость (1/ч): нет данных"
+   :charts/accel-title "Ускорение (Δ/час²)"
+   :charts/accel-empty "Ускорение (Δ/час²): нет данных"
+   :charts/filter-accessibility "Фильтр: %s"
+   :charts/filter-all "Все"
+   :charts/filter-all-accessibility "Фильтр: все кнопки"
+   :charts/show-rate "Скорость"
+   :charts/show-accel "Ускорение"})
 
 (defn t
   "Строка по ключу; отсутствующий ключ возвращается как есть."

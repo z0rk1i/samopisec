@@ -6,7 +6,7 @@
             [react-native :as rn]
             [app.chart-geom :as geom]
             [app.theme :as theme]
-            [app.i18n :refer [t]]
+            [app.i18n :refer [t tf]]
             ["react-native-svg" :as svg]))
 
 (defonce pad 20.0)
@@ -104,8 +104,8 @@
                  cum)]
     (if (empty? pts)
       ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
-         "Накопленные нажатия: нет данных за выбранный период")
-      ($ chart-card {:title "Накопленные нажатия" :points pts
+         (t :charts/cumulative-empty))
+      ($ chart-card {:title (t :charts/cumulative-title) :points pts
                      :color (:accent t) :fill? true
                      :start start :end end}))))
 
@@ -119,8 +119,8 @@
                  rates)]
     (if (empty? pts)
       ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
-         "Скорость (1/ч): нет данных")
-      ($ chart-card {:title "Скорость (1/ч)" :points pts
+         (t :charts/rate-empty))
+      ($ chart-card {:title (t :charts/rate-title) :points pts
                      :color (:success t)
                      :start start :end end}))))
 
@@ -135,8 +135,8 @@
         pts (map (fn [i x] {:x x :y (nth accel i)}) (range n) xs)]
     (if (empty? pts)
       ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
-         "Ускорение (Δ/час²): нет данных")
-      ($ chart-card {:title "Ускорение (Δ/час²)" :points pts
+         (t :charts/accel-empty))
+      ($ chart-card {:title (t :charts/accel-title) :points pts
                      :color (:purple t)
                      :start start :end end}))))
 
@@ -148,7 +148,7 @@
        (for [{:keys [k label]} ranges]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! :range k)
-                          :accessibility-label (str "Диапазон " label)
+                          :accessibility-label (tf :charts/range-accessibility label)
                           :style {:padding-horizontal 12 :padding-vertical 6
                                   :border-radius 16 :margin-right 8
                                   :background-color (if (= k (:range chart)) (:accent t) (:accent-soft t))}}
@@ -161,17 +161,17 @@
         buttons (use-subscribe [:buttons])
         set-opt! #(rf/dispatch [:chart/set %1 %2])]
     ($ rn/View {:style {:flex-direction :row :flex-wrap :wrap :margin-bottom 8}}
-       ($ rn/Pressable {:on-press #(set-opt! :button-id :all)
-                        :accessibility-label "Фильтр: все кнопки"
+($ rn/Pressable {:on-press #(set-opt! :button-id :all)
+                        :accessibility-label (t :charts/filter-all-accessibility)
                         :style {:padding-horizontal 12 :padding-vertical 6
                                 :border-radius 16 :margin-right 8 :margin-bottom 4
                                 :background-color (if (= :all (:button-id chart)) (:accent t) (:accent-soft t))}}
-          ($ rn/Text {:style {:color (if (= :all (:button-id chart)) (:text-on-accent t) (:text t))}}
-             "Все"))
+           ($ rn/Text {:style {:color (if (= :all (:button-id chart)) (:text-on-accent t) (:text t))}}
+              (t :charts/filter-all)))
        (for [b buttons]
          ($ rn/Pressable {:key (:id b)
                           :on-press #(set-opt! :button-id (:id b))
-                          :accessibility-label (str "Фильтр: " (:label b))
+                          :accessibility-label (tf :charts/filter-accessibility (:label b))
                           :style {:padding-horizontal 12 :padding-vertical 6
                                   :border-radius 16 :margin-right 8 :margin-bottom 4
                                   :background-color (if (= (:id b) (:button-id chart)) (:accent t) (:accent-soft t))}}
@@ -183,7 +183,7 @@
         chart (use-subscribe [:chart])
         set-opt! #(rf/dispatch [:chart/set %1 %2])]
     ($ rn/View {:style {:flex-direction :row :margin-bottom 12}}
-       (for [[k label] [[:show-rate "Скорость"] [:show-accel "Ускорение"]]]
+       (for [[k label] [[:show-rate (t :charts/show-rate)] [:show-accel (t :charts/show-accel)]]]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! k (not (get chart k)))
                           :accessibility-label label
