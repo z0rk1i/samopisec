@@ -118,20 +118,7 @@ class TapWidgetProvider : AppWidgetProvider() {
   private fun readConfig(context: Context): List<JSONObject> {
     val file = configFile(context)
     if (!file.exists()) return emptyList()
-    return try {
-      val arr = JSONObject(file.readText()).optJSONArray("buttons")
-      if (arr == null) emptyList()
-      else (0 until arr.length()).mapNotNull { i ->
-        val b = try {
-          arr.getJSONObject(i)
-        } catch (e: Exception) {
-          null
-        }
-        if (b != null && !b.optString("id", "").isBlank() && !b.optString("label", "").isBlank()) b else null
-      }
-    } catch (e: Exception) {
-      emptyList()
-    }
+    return WidgetConfig.parseButtons(file.readText())
   }
 
   private fun appendDatapoint(context: Context, buttonId: String) {

@@ -27,19 +27,9 @@ enum WidgetStore {
 
   static func loadButtons() -> [ButtonInfo] {
     guard let url = configURL(),
-          let data = try? Data(contentsOf: url),
-          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-          let arr = json["buttons"] as? [[String: Any]] else { return [] }
-    return arr.prefix(6).compactMap { b in
-      guard let id = b["id"] as? String,
-            let label = b["label"] as? String,
-            !id.trimmingCharacters(in: .whitespaces).isEmpty,
-            !label.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
-      return ButtonInfo(
-        id: id,
-        label: label,
-        colorHex: b["color"] as? String ?? "#1976D2"
-      )
+          let data = try? Data(contentsOf: url) else { return [] }
+    return WidgetConfig.parseButtons(from: data).map {
+      ButtonInfo(id: $0.id, label: $0.label, colorHex: $0.colorHex)
     }
   }
 
