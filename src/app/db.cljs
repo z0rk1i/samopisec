@@ -10,6 +10,7 @@
   {:screen :config
    :buttons []
    :datapoints []
+   :config/dirty false
    :chart {:range :day
            :button-id :all
            :show-rate false
@@ -61,19 +62,25 @@
  :config/add
  (fn [db [_ label color]]
    (let [btn {:id (storage/new-id) :label label :color color}]
-     (assoc db :buttons (conj (:buttons db) btn)))))
+     (-> db
+         (assoc :config/dirty true)
+         (assoc :buttons (conj (:buttons db) btn))))))
 
 (rf/reg-event-db
  :config/remove
  (fn [db [_ id]]
-   (assoc db :buttons (vec (remove #(= id (:id %)) (:buttons db))))))
+   (-> db
+       (assoc :config/dirty true)
+       (assoc :buttons (vec (remove #(= id (:id %)) (:buttons db)))))))
 
 (rf/reg-event-db
  :config/update
  (fn [db [_ id patch]]
-   (assoc db :buttons
-          (mapv (fn [b] (if (= id (:id b)) (merge b patch) b))
-                (:buttons db)))))
+   (-> db
+       (assoc :config/dirty true)
+       (assoc :buttons
+              (mapv (fn [b] (if (= id (:id b)) (merge b patch) b))
+                    (:buttons db))))))
 
 (rf/reg-event-db
  :config/move
@@ -87,7 +94,9 @@
        db
        (let [j (if (= dir :up) (dec i) (inc i))
              bs (vec (assoc bs i (nth bs j) j (nth bs i)))]
-         (assoc db :buttons bs))))))
+         (-> db
+             (assoc :config/dirty true)
+             (assoc :buttons bs)))))))
 
 (rf/reg-fx
  :storage/save-config
@@ -97,9 +106,11 @@
 (rf/reg-event-fx
  :config/commit
  (fn [{:keys [db]} _]
-   {:db db
-    :storage/save-config (select-keys db [:buttons])
-    :widget/refresh nil}))
+   (if (:config/dirty db)
+     {:db (assoc db :config/dirty false)
+      :storage/save-config (select-keys db [:buttons])
+      :widget/refresh nil}
+     {:db db})))
 
 (rf/reg-fx
  :widget/refresh
@@ -138,8 +149,7 @@
                          (remove #(= (:id %) id))
                          vec)]
             (assoc db :datapoints dps))
-          db)
-    :widget/refresh nil}))
+          db)}))
 
 (rf/reg-event-db
  :screen/set
