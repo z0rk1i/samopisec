@@ -271,3 +271,51 @@ uiautomator'ом. Receiver `TapWidgetProvider` был объявлен `android:
 `buildViews` с 2 кнопками («Чай»/«Кофе») применился без ActionException, обе
 кнопки отрисованы (content-desc видны в accessibility-дереве). APK пересобран
 (73M).
+
+## ADR-0011 — iOS app/widget: платформозависимый base-dir и блокер App Group на team-less сборках
+**Дата:** 2026-08-15
+**Статус:** accepted (частично: код-фикс внедрён, build-блокер зафиксирован)
+
+### Контекст
+`storage.cljs` писал в `Paths.document`, если в `Paths.appleSharedContainers` не
+было ключа App Group (`group.com.z0rk1.samopisec`). На iOS это означало
+молчаливый рассинхрон: виджет WidgetKit читает только App Group контейнер, а
+приложение падало в свой Documents (память #24, ADR-0005).
+
+### Решение (код)
+`base-dir` стал платформозависимым: на iOS приоритет — App Group контейнер, при
+его недоступности пишем в Documents с `console.error` (рассинхрон больше не
+молчаливый); на Android — `Paths.document` как раньше (его же читает
+TapWidgetProvider). Добавлена `storage-location` (диагностика: платформа, base-dir,
+резолвится ли App Group) и лог при старте в `core.init`.
+
+### Находка: build-блокер App Group на team-less сборках
+При сборке без Apple developer team (`CODE_SIGN_IDENTITY=-`, без
+`DEVELOPMENT_TEAM`) xcodebuild 26.5 подписывает app и widget appex с ПУСТЫМИ
+entitlements в подписи: шаг CodeSign использует `samopisec.app.xcent`,
+сгенерированный из пустого профиля, а не `-Simulated.xcent` (в котором есть
+`application-identifier` и app-group). Entitlements попадают только в секцию
+`__TEXT,__entitlements` (через `LD_ENTITLEMENTS_SECTION`), но runtime
+`containerURL(forSecurityApplicationGroupIdentifier:)` читает подпись → nil →
+`appleSharedContainers` пуст → app пишет в Documents, виджет данных не видит.
+
+Проверено (симулятор iPhone 17 Pro, iOS 26.5):
+- дефолтная сборка: запускается, `containerURL` → nil;
+- переподпись group-only (app + appex): запускается, `containerURL` → nil;
+- переподпись с `application-identifier` (FAKETEAMID или голый bundle id):
+  SpringBoard отклоняет запуск;
+- unsigned: SpringBoard отклоняет запуск;
+- переопределение `CODE_SIGN_STYLE=Manual`, `ENTITLEMENTS_ALLOWED=YES`,
+  `ENTITLEMENTS_DESTINATION=signature`, `CODE_SIGNING_ALLOWED=NO` —
+  подпись всё равно пустая/секция исчезает.
+
+Т.е. на этом Xcode/симуляторе runtime-доступ к App Group возможен только при
+подписи, где entitlements приходят из provisioning profile с capability App Group
+(нужен team). Ранее (14 авг) виджет работал на симуляторе — вероятно, состояние
+Xcode/симулятора изменилось (обновление тулчейна).
+
+### Результат
+Код-фикс внедрён и диагностика добавлена. iOS-виджет на team-less сборке на
+симуляторе не сможет читать данные, пока в сборке нет provisioning с App Group
+capability. Путь: настроить бесплатный Apple personal team (free provisioning
+включает App Group для development) и подписывать с `DEVELOPMENT_TEAM`.

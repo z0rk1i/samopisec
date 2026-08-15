@@ -95,9 +95,12 @@
 ## Роадмап улучшений (2026-08-15)
 
 ### P1 — Надёжность
-- [ ] iOS app/widget рассинхрон: `storage.cljs` фолбэчится на `Paths.document`,
+- [x] iOS app/widget рассинхрон: `storage.cljs` фолбэчится на `Paths.document`,
       виджет читает App Group → разобрать `appleSharedContainers`, гарантировать запись
       в `group.com.z0rk1.samopisec` (память #24, ADR-0005)
+      — код-фикс внедрён (ADR-0011): iOS всегда приоритет App Group + диагностика;
+      осталось: настроить бесплатный Apple personal team для provisioning с App Group
+      capability (на team-less симуляторных сборках runtime не резолвит контейнер)
 - [ ] тест на физических устройствах: Android (adb), iOS (developer-provisioning, без EAS)
 - [ ] гонка записи `datapoints.jsonl` Android: виджет (Java appendText) vs приложение
       (expo-file-system) → сериализовать доступ
