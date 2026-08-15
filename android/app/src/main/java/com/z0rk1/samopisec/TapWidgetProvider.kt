@@ -3,10 +3,13 @@ package com.z0rk1.samopisec
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
 import android.widget.RemoteViews
 import org.json.JSONObject
 import java.io.File
@@ -34,6 +37,16 @@ class TapWidgetProvider : AppWidgetProvider() {
     }
   }
 
+  override fun onAppWidgetOptionsChanged(
+    context: Context,
+    manager: AppWidgetManager,
+    widgetId: Int,
+    newOptions: Bundle?
+  ) {
+    super.onAppWidgetOptionsChanged(context, manager, widgetId, newOptions)
+    manager.updateAppWidget(widgetId, buildViews(context, widgetId))
+  }
+
   override fun onReceive(context: Context, intent: Intent) {
     Log.d(TAG, "onReceive: ${intent.action} extras=${intent.extras?.keySet()}")
     super.onReceive(context, intent)
@@ -45,6 +58,13 @@ class TapWidgetProvider : AppWidgetProvider() {
 
   fun buildViews(context: Context, widgetId: Int): RemoteViews {
     val buttons = readConfig(context)
+    val opts = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
+    val hostCategory = opts.getInt(
+      AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY,
+      AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN
+    )
+    val lockScreen = hostCategory == AppWidgetProviderInfo.WIDGET_CATEGORY_KEYGUARD
+    val labelSize = if (lockScreen) 18f else 14f
     if (buttons.isEmpty()) {
       val empty = RemoteViews(context.packageName, R.layout.widget_empty)
       empty.setTextViewText(R.id.widget_empty_text, "Откройте приложение\nи добавьте кнопки")
@@ -57,7 +77,7 @@ class TapWidgetProvider : AppWidgetProvider() {
       R.id.widget_slot_4, R.id.widget_slot_5, R.id.widget_slot_6
     )
     buttons.take(MAX_BUTTONS).forEachIndexed { i, button ->
-      root.addView(slots[i], buttonView(context, widgetId, button, i))
+      root.addView(slots[i], buttonView(context, widgetId, button, i, labelSize))
     }
     return root
   }
@@ -66,7 +86,8 @@ class TapWidgetProvider : AppWidgetProvider() {
     context: Context,
     widgetId: Int,
     button: JSONObject,
-    requestCode: Int
+    requestCode: Int,
+    labelSize: Float
   ): RemoteViews {
     val view = RemoteViews(context.packageName, R.layout.widget_button)
     val id = button.optString("id", "")
@@ -77,6 +98,7 @@ class TapWidgetProvider : AppWidgetProvider() {
       Color.parseColor("#1976D2")
     }
   view.setTextViewText(R.id.widget_label, label)
+  view.setTextViewTextSize(R.id.widget_label, TypedValue.COMPLEX_UNIT_SP, labelSize)
   view.setInt(R.id.widget_button_root, "setBackgroundColor", color)
   view.setContentDescription(R.id.widget_button_root, label)
 
