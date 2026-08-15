@@ -48,3 +48,4 @@ yarn-error.*
 .omo/
 .obsolete-files.txt
 target/
+android/local.properties
