@@ -101,7 +101,8 @@
       — код-фикс внедрён (ADR-0011): iOS всегда приоритет App Group + диагностика;
       осталось: настроить бесплатный Apple personal team для provisioning с App Group
       capability (на team-less симуляторных сборках runtime не резолвит контейнер)
-- [ ] тест на физических устройствах: Android (adb), iOS (developer-provisioning, без EAS)
+- [x] тест на физических устройствах: пройден (Android 16, 2026-08-15) — виджет
+      добавляется и тапается; iOS — отложено до provisioning (ADR-0011)
 - [x] гонка записи `datapoints.jsonl` Android: виджет (Java appendText) vs приложение
       (expo-file-system) → сериализовать доступ — проверено: обе стороны одиночный
       атомарный append (O_APPEND), перемешивания нет
@@ -118,7 +119,7 @@
 - [x] экран статистики: лучший день, серии, heatmap по часам, итоги per-button
 - [x] lock screen виджет Android 16 (вторично по ADR-0001): доступен по умолчанию,
       onAppWidgetOptionsChanged re-render + крупный текст (WIDGET_CATEGORY_KEYGUARD)
-- [ ] iOS Live Activity / Lock Screen — вторично (ADR-0001)
+- [x] iOS Live Activity / Lock Screen — закрыто (не нужно по решению пользователя)
 
 ### P4 — UX
 - [x] i18n: словарь `app/i18n` (RU), `t`/`tf`-шаблоны; добавление языка — новая карта
