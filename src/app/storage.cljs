@@ -1,19 +1,45 @@
 (ns app.storage
   "Персистентность дата-поинтов и конфига кнопок через expo-file-system.
-   Датaпоинты — JSONL (строка на событие), конфиг — JSON. Файлы в document dir приложения;
-   в фазах 4/5 базовый путь сменится на общий (filesDir / App Group)."
+   Датaпоинты — JSONL (строка на событие), конфиг — JSON. iOS: общий App Group
+   контейнер (виджет WidgetKit читает только оттуда); Android: document dir
+   (= filesDir, оттуда же читает TapWidgetProvider)."
   (:require [app.jsonl :as jsonl]
             [app.contract :as contract]
+            [react-native :as rn]
             ["expo-file-system" :as fs]))
 
 (def ^:const app-group "group.com.z0rk1.samopisec")
 
+(defn- shared-container
+  "Directory App Group контейнера (iOS) либо nil. На Android контейнеров нет —
+   appleSharedContainers пуст."
+  []
+  (get fs/Paths.appleSharedContainers app-group))
+
 (defn- base-dir
-  "Общая директория данных. iOS: App Group контейнер (виджет читает оттуда же).
+  "Общая директория данных.
+   iOS: App Group контейнер — виджет читает только оттуда, поэтому молчаливый
+   фолбэк на Documents означал бы рассинхрон app/widget и логируется как ошибка.
    Android: document dir (= filesDir, оттуда читает TapWidgetProvider)."
   []
-  (or (get fs/Paths.appleSharedContainers app-group)
-      fs/Paths.document))
+  (if (= (.-OS rn/Platform) "ios")
+    (if-let [d (shared-container)]
+      d
+      (do
+        (js/console.error
+         (str "samopisec: App Group '" app-group "' не резолвится — entitlement "
+              "не попал в сборку. Приложение пишет в Documents, виджет данных не увидит."))
+        fs/Paths.document))
+    fs/Paths.document))
+
+(defn storage-location
+  "Диагностика хранения: платформа, base-dir и резолвится ли App Group.
+   Позволяет заметить рассинхрон app/widget (iOS должен писать в App Group)."
+  []
+  {:platform (.-OS rn/Platform)
+   :app-group app-group
+   :shared-container (some-> (shared-container) (.-uri))
+   :base-dir (.-uri (base-dir))})
 
 (defn- make-file
   [name]
