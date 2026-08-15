@@ -18,11 +18,22 @@
   (is (not (c/datapoint? {:id "d" :button-id "b"})))
   (is (not (c/datapoint? {:id "d" :button-id "b" :ts "100"}))))
 
+(deftest valid-color-test
+  (is (c/valid-color? "#1976d2"))
+  (is (c/valid-color? "#ABCDEF"))
+  (is (not (c/valid-color? "#fff")))
+  (is (not (c/valid-color? "#12345")))
+  (is (not (c/valid-color? "#1234567")))
+  (is (not (c/valid-color? "red")))
+  (is (not (c/valid-color? nil)))
+  (is (not (c/valid-color? 123))))
+
 (deftest normalize-config-test
   (testing "drops invalid buttons, keeps valid in order"
-    (is (= {:buttons [{:id "a" :label "x" :color "#fff"}]}
-           (c/normalize-config {:buttons [{:id "a" :label "x" :color "#fff"}
-                                          {:id "" :label "y" :color "#000"}
+    (is (= {:buttons [{:id "a" :label "x" :color "#ffffff"}]}
+           (c/normalize-config {:buttons [{:id "a" :label "x" :color "#ffffff"}
+                                          {:id "" :label "y" :color "#000000"}
+                                          {:id "c" :label "z" :color "#fff"}
                                           "junk"]})))))
 
 (deftest normalize-datapoints-test

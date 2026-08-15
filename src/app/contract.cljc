@@ -6,16 +6,25 @@
 
 (def max-buttons 6)
 
+(def ^:private hex-regex
+  "Цвет вида #rrggbb (ровно 6 hex-цифр). Палитра виджетов даёт такие; всё, что
+   короче/длиннее/с буквами — невалидно (hex->rgba в UI падает на subs)."
+  #"^#[0-9a-fA-F]{6}$")
+
+(defn valid-color?
+  "Валидный цвет кнопки: строка вида #rrggbb."
+  [c]
+  (and (string? c) (boolean (re-matches hex-regex c))))
+
 (defn config-button?
-  "Валидная кнопка конфига: непустой id, непустой label и color вида #rrggbb."
+  "Валидная кнопка конфига: непустой id, непустой label и цвет вида #rrggbb."
   [b]
   (and (map? b)
        (string? (:id b))
        (not (str/blank? (:id b)))
        (string? (:label b))
        (not (str/blank? (:label b)))
-       (string? (:color b))
-       (str/starts-with? (:color b) "#")))
+       (valid-color? (:color b))))
 
 (defn datapoint?
   "Валидный дата-поинт: id, button-id и положительный ts (мс)."

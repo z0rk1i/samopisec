@@ -7,12 +7,16 @@
             [app.i18n :as i18n]))
 
 (defn- hex->rgba
+  "hex #rrggbb -> rgba(). На невалидный цвет (вручную подправленный конфиг) —
+   прозрачный акцент, чтобы экран статистики не падал на subs."
   [hex a]
-  (let [h (subs hex 1)
-        r (js/parseInt (subs h 0 2) 16)
-        g (js/parseInt (subs h 2 4) 16)
-        b (js/parseInt (subs h 4 6) 16)]
-    (str "rgba(" r "," g "," b "," a ")")))
+  (if (re-matches #"^#[0-9a-fA-F]{6}$" (or hex ""))
+    (let [h (subs hex 1)
+          r (js/parseInt (subs h 0 2) 16)
+          g (js/parseInt (subs h 2 4) 16)
+          b (js/parseInt (subs h 4 6) 16)]
+      (str "rgba(" r "," g "," b "," a ")"))
+    (str "rgba(128,128,128," a ")")))
 
 (defui stat-card [{:keys [title value sub]}]
   (let [t (theme/use-theme)]
