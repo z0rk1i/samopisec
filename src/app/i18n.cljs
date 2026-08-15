@@ -61,6 +61,8 @@
    :stats/streak-sub "%s дней подряд"
    :stats/best-day "Лучший день"
    :stats/by-buttons "По кнопкам"
+   :stats/button-col "Кнопка"
+   :stats/count-col "Нажатий"
    :stats/by-buttons-empty "Нет кнопок — добавьте в разделе «Кнопки»."
    :stats/by-hour "По часам"
 

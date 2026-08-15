@@ -32,7 +32,10 @@
   (is (= [1.5 2.0 2.5] (m/moving-average [1 2 3] 3))))
 
 (deftest second-derivative-test
-  (is (= [1.0 1.0 -1.0] (m/second-derivative [1 2 3]))))
+  (is (= [1.0 1.0 1.0] (m/second-derivative [1 2 3] 1.0)))
+  (is (= [0.0 0.0 0.0 0.0] (m/second-derivative [5 5 5 5] 1.0)))
+  (is (= [0.5 0.5 0.5] (m/second-derivative [0 1 2] 2.0)))
+  (is (= [0.0] (m/second-derivative [3] 1.0))))
 
 (deftest series-test
   (let [ts [0 100 1000 1100 2000]
@@ -41,4 +44,4 @@
            (:cumulative s)))
     (is (= 3 (count (:rate s))))
     (is (= 3 (count (:accel s))))
-    (is (= 3000.0 (first (:accel s))))))
+    (is (= [-4320000.0 -3240000.0 -2160000.0] (:accel s)))))

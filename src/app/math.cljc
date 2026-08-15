@@ -58,13 +58,18 @@
           (range n))))
 
 (defn second-derivative
-  "Центральная разность ряда rate: accel[i] = (rate[i+1] - rate[i-1]) / 2."
-  [rates]
-  (let [n (count rates)]
+  "Ускорение по ряду rate: accel[i] = (rate[i+1] - rate[i-1]) / (2*dt).
+   dt — длительность бина в часах (rate в нажатиях/час -> accel в нажатиях/час²).
+   На краях — односторонние разности без выдуманных нулей (иначе ложные спайки)."
+  [rates dt]
+  (let [n (count rates)
+        dt (max 1e-9 dt)]
     (mapv (fn [i]
-            (let [prev (if (zero? i) 0.0 (nth rates (dec i)))
-                  nxt (if (= i (dec n)) 0.0 (nth rates (inc i)))]
-              (/ (- nxt prev) 2.0)))
+            (cond
+              (= n 1) 0.0
+              (zero? i) (/ (- (nth rates 1) (nth rates 0)) dt)
+              (= i (dec n)) (/ (- (nth rates i) (nth rates (dec i))) dt)
+              :else (/ (- (nth rates (inc i)) (nth rates (dec i))) (* 2.0 dt))))
           (range n))))
 
 (defn series
@@ -77,4 +82,4 @@
         smoothed (moving-average (mapv :rate rates) 5)]
     {:cumulative (cumulative-counts ts')
      :rate rates
-     :accel (second-derivative smoothed)}))
+     :accel (second-derivative smoothed (/ bin-size-ms hour-ms))}))

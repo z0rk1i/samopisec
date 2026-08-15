@@ -45,7 +45,7 @@
                                      :border-color "#000"}})))
        (when at-limit?
          ($ rn/Text {:style {:color (:danger t) :font-size 13 :margin-top 8}}
-            (i18n/t :add/limit))
+            (i18n/t :add/limit)))
        ($ rn/Pressable {:on-press (fn []
                                     (when (and (seq *label) (not at-limit?))
                                       (rf/dispatch [:config/add *label *color])
@@ -57,7 +57,7 @@
                                 :padding 12 :border-radius 8 :margin-top 12
                                 :align-items :center}}
           ($ rn/Text {:style {:color (:text-on-accent t) :font-size 16 :font-weight "600"}}
-             (i18n/t :add/save)))))))
+             (i18n/t :add/save))))))
 
 (defui edit-button-form [{:keys [id label color on-save on-cancel]}]
   (let [t (theme/use-theme)

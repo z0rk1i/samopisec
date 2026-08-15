@@ -59,6 +59,13 @@
        ($ rn/Text {:style {:font-size 16 :font-weight "600" :color (:text t)
                             :margin-top 8 :margin-bottom 8}}
           (i18n/t :stats/by-buttons))
+       ($ rn/View {:style {:flex-direction :row :align-items :center
+                           :padding-vertical 6 :border-bottom-width 1
+                           :border-bottom-color (:border t)}}
+          ($ rn/Text {:style {:flex 1 :font-size 13 :color (:text-secondary t)}}
+             (i18n/t :stats/button-col))
+          ($ rn/Text {:style {:font-size 13 :color (:text-secondary t)}}
+             (i18n/t :stats/count-col)))
        (if (empty? buttons)
          ($ rn/Text {:style {:font-size 15 :color (:text-faint t)}}
             (i18n/t :stats/by-buttons-empty))
@@ -70,8 +77,10 @@
           (i18n/t :stats/by-hour))
        ($ rn/View {:style {:flex-direction :row :flex-wrap :wrap}}
           (for [h (range 24)]
-            (let [cnt (nth heatmap h)
-                  intensity (/ cnt (max 1 max-hour))]
+(let [cnt (nth heatmap h)
+                  intensity (/ cnt (max 1 max-hour))
+                  txt-color (if (> intensity 0.4) (:text-on-accent t) (:text t))
+                  dim-color (if (> intensity 0.4) (:text-on-accent t) (:text-faint t))]
               ($ rn/View {:key h
                           :style {:width "11.5%" :aspect-ratio 1
                                   :margin "1.3%"
@@ -81,7 +90,7 @@
                                                       (:card t)
                                                       (hex->rgba (:accent t)
                                                                  (max 0.15 (* 0.9 intensity))))}}
-                 ($ rn/Text {:style {:font-size 11 :color (if (> intensity 0.4)
-                                                            (:text-on-accent t)
-                                                            (:text-secondary t))}}
-                    (str h))))))))
+                 ($ rn/Text {:style {:font-size 9 :color dim-color}}
+                    (str h))
+                 ($ rn/Text {:style {:font-size 13 :font-weight "700" :color txt-color}}
+                    (if (zero? cnt) "" (str cnt)))))))))
