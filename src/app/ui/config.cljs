@@ -5,7 +5,8 @@
             [react-native :as rn]
             [app.storage :as storage]
             [app.contract :as contract]
-            [app.theme :as theme]))
+            [app.theme :as theme]
+            [app.i18n :as i18n]))
 
 (defonce colors
   ["#e53935" "#fb8c00" "#fdd835" "#43a047"
@@ -22,12 +23,12 @@
                            :margin-bottom 8}}
           ($ rn/Text {:style {:font-size 16 :font-weight "600" :color (:text t)
                               :margin-right 8}}
-             "Новая кнопка")
+             (i18n/t :add/title))
           ($ rn/Text {:style {:font-size 13 :color (:text-secondary t)}}
              (str (count buttons) "/" contract/max-buttons)))
        ($ rn/TextInput {:value *label
                         :on-change-text set-label!
-                        :placeholder "Название (например «Чай»)"
+                        :placeholder (i18n/t :add/name-placeholder)
                         :placeholder-text-color (:text-faint t)
                         :style {:border-width 1 :border-color (:input-border t)
                                 :border-radius 8 :padding 10
@@ -37,14 +38,14 @@
           (for [c colors]
             ($ rn/Pressable {:key c
                              :on-press #(set-color! c)
-                             :accessibility-label (str "Цвет " c)
+                             :accessibility-label (i18n/tf :color/a11y c)
                              :style {:width 32 :height 32 :border-radius 16
                                      :background-color c :margin-right 8
                                      :border-width (if (= c *color) 3 0)
                                      :border-color "#000"}})))
        (when at-limit?
          ($ rn/Text {:style {:color (:danger t) :font-size 13 :margin-top 8}}
-            "Достигнут лимит кнопок — виджет вмещает 6"))
+            (i18n/t :add/limit))
        ($ rn/Pressable {:on-press (fn []
                                     (when (and (seq *label) (not at-limit?))
                                       (rf/dispatch [:config/add *label *color])
@@ -56,7 +57,7 @@
                                 :padding 12 :border-radius 8 :margin-top 12
                                 :align-items :center}}
           ($ rn/Text {:style {:color (:text-on-accent t) :font-size 16 :font-weight "600"}}
-             "Добавить")))))
+             (i18n/t :add/save)))))))
 
 (defui edit-button-form [{:keys [id label color on-save on-cancel]}]
   (let [t (theme/use-theme)
@@ -66,7 +67,7 @@
                         :padding 10 :background-color (:card t) :margin-top 8}}
        ($ rn/TextInput {:value *label
                         :on-change-text set-label!
-                        :placeholder "Название"
+                        :placeholder (i18n/t :edit/name-placeholder)
                         :placeholder-text-color (:text-faint t)
                         :style {:border-width 1 :border-color (:input-border t)
                                 :border-radius 8 :padding 8 :font-size 15
@@ -75,39 +76,39 @@
           (for [c colors]
             ($ rn/Pressable {:key c
                              :on-press #(set-color! c)
-                             :accessibility-label (str "Цвет " c)
+                             :accessibility-label (i18n/tf :color/a11y c)
                              :style {:width 24 :height 24 :border-radius 12
                                      :background-color c :margin-right 6 :margin-bottom 6
                                      :border-width (if (= c *color) 2 0)
                                      :border-color "#000"}})))
        ($ rn/View {:style {:flex-direction :row :margin-top 8 :align-items :center}}
           ($ rn/Text {:style {:font-size 13 :color (:text-secondary t) :margin-right 10}}
-             "Порядок:")
-          ($ rn/Pressable {:on-press (fn []
-                                       (rf/dispatch [:config/move id :up])
+(i18n/t :edit/order))
+           ($ rn/Pressable {:on-press (fn []
+                                        (rf/dispatch [:config/move id :up])
                                        (rf/dispatch [:config/commit]))
-                           :accessibility-label "Переместить выше"
+                           :accessibility-label (i18n/t :edit/move-up)
                            :style {:padding 6 :border-width 1 :border-color (:input-border t)
                                    :border-radius 6 :margin-right 6}}
              ($ rn/Text {:style {:font-size 14 :color (:accent t)}} "↑"))
           ($ rn/Pressable {:on-press (fn []
                                        (rf/dispatch [:config/move id :down])
                                        (rf/dispatch [:config/commit]))
-                           :accessibility-label "Переместить ниже"
+                           :accessibility-label (i18n/t :edit/move-down)
                            :style {:padding 6 :border-width 1 :border-color (:input-border t)
                                    :border-radius 6}}
              ($ rn/Text {:style {:font-size 14 :color (:accent t)}} "↓")))
        ($ rn/View {:style {:flex-direction :row :margin-top 8}}
           ($ rn/Pressable {:on-press #(on-save *label *color)
-                           :accessibility-label "Сохранить изменения"
+                           :accessibility-label (i18n/t :edit/save-changes)
                            :style {:padding 8 :background-color (:accent t)
                                    :border-radius 6 :margin-right 8}}
-             ($ rn/Text {:style {:color (:text-on-accent t) :font-size 14}} "Сохранить"))
+             ($ rn/Text {:style {:color (:text-on-accent t) :font-size 14}} (i18n/t :edit/save))
           ($ rn/Pressable {:on-press on-cancel
-                           :accessibility-label "Отменить редактирование"
+                           :accessibility-label (i18n/t :edit/cancel-edit)
                            :style {:padding 8 :border-width 1 :border-color (:input-border t)
                                    :border-radius 6}}
-             ($ rn/Text {:style {:color (:text-secondary t) :font-size 14}} "Отмена"))))))
+             ($ rn/Text {:style {:color (:text-secondary t) :font-size 14}} (i18n/t :edit/cancel))))))))
 
 (defui button-row [{:keys [id label color count]}]
   (let [t (theme/use-theme)
@@ -120,10 +121,10 @@
                 (set-editing! false))
         remove! (fn []
                   (rn/Alert.alert
-                   "Удалить кнопку?"
-                   (str "«" label "» будет удалена. История нажатий останется в данных.")
-                   #js [{:text "Отмена" :style "cancel"}
-                        {:text "Удалить" :style "destructive"
+                   (i18n/t :delete/title)
+                   (i18n/tf :delete/body label)
+                   #js [{:text (i18n/t :delete/abort) :style "cancel"}
+                        {:text (i18n/t :delete/confirm) :style "destructive"
                          :onPress (fn []
                                     (rf/dispatch [:config/remove id])
                                     (rf/dispatch [:config/commit]))}]))]
@@ -138,17 +139,17 @@
           ($ rn/Text {:style {:font-size 14 :color (:text-secondary t) :margin-right 12}}
              (if (zero? count) "0" (str count)))
           ($ rn/Pressable {:on-press record!
-                           :accessibility-label (str "Записать нажатие «" label "»")
+:accessibility-label (i18n/tf :record/label label)
                            :style {:padding 8 :background-color (:success t)
                                    :border-radius 6 :margin-right 8}}
-             ($ rn/Text {:style {:color (:text-on-accent t)}} "Жми"))
+              ($ rn/Text {:style {:color (:text-on-accent t)}} (i18n/t :record/button)))
           ($ rn/Pressable {:on-press #(set-editing! (not *editing?))
-                           :accessibility-label (str "Редактировать кнопку «" label "»")
+                           :accessibility-label (i18n/tf :edit/button-label label)
                            :style {:padding 8 :background-color (:remove-bg t)
                                    :border-radius 6 :margin-right 8}}
              ($ rn/Text {:style {:color (:accent t)}} "✎"))
           ($ rn/Pressable {:on-press remove!
-                           :accessibility-label (str "Удалить кнопку «" label "»")
+                           :accessibility-label (i18n/tf :delete/button-label label)
                            :style {:padding 8 :background-color (:remove-bg t)
                                    :border-radius 6}}
              ($ rn/Text {:style {:color (:danger t)}} "✕")))
@@ -176,39 +177,42 @@
                            :margin-bottom 16}}
           ($ rn/Text {:style {:font-size 24 :font-weight "700" :color (:text t)
                               :margin-right 8}}
-             "Кнопки")
-          ($ rn/Text {:style {:font-size 14 :color (:text-secondary t)}}
-             (str "сегодня: " (:total counts)))
+(i18n/t :tabs/config))
+           ($ rn/Text {:style {:font-size 14 :color (:text-secondary t)}}
+              (str (i18n/t :header/today) " " (:total counts)))
           ($ rn/View {:style {:flex 1}})
           ($ rn/Pressable {:on-press #(rf/dispatch [:data/undo])
-                           :accessibility-label "Отменить последнее нажатие"
+                           :accessibility-label (i18n/t :undo/label)
                            :disabled (not can-undo?)
                            :style {:padding 8 :border-width 1
                                    :border-color (if can-undo? (:input-border t) (:border t))
                                    :border-radius 6 :margin-right 8}}
              ($ rn/Text {:style {:color (if can-undo? (:accent t) (:text-faint t))
                                  :font-size 14}}
-                "Отменить"))
-          ($ rn/Pressable {:on-press export!
-                           :accessibility-label "Экспорт данных"
+(i18n/t :undo)))
+           ($ rn/Pressable {:on-press export!
+                           :accessibility-label (i18n/t :export/label)
                            :style {:padding 8 :border-width 1 :border-color (:input-border t)
                                    :border-radius 6}}
-             ($ rn/Text {:style {:color (:accent t) :font-size 14}} "Экспорт")))
+             ($ rn/Text {:style {:color (:accent t) :font-size 14}} (i18n/t :export))))
        ($ add-button-form)
        ($ rn/Text {:style {:font-size 14 :color (:text-secondary t) :margin-bottom 8}}
-          "Нажатия с виджета появятся здесь после синхронизации.")
+          (i18n/t :config/sync-hint))
 (if (empty? buttons)
           ($ rn/View {:style {:border-width 1 :border-color (:border t)
                               :border-radius 10 :padding 16
                               :background-color (:card t) :margin-top 8}}
              ($ rn/Text {:style {:font-size 16 :font-weight "600" :color (:text t)}}
-                "С чего начать")
+                (i18n/t :empty/title))
              ($ rn/Text {:style {:font-size 14 :color (:text-secondary t)
                                  :margin-top 8 :line-height 20}}
-                "1. Добавьте кнопку выше — например «Чай» или «Кофе».\n"
-                "2. На главном экране: удерживайте палец → «Виджеты» → Samopisec.\n"
-                "3. Тапайте по кнопкам на виджете — каждое нажатие записывается.\n"
-                "Графики и статистика обновляются автоматически."))
+                (i18n/t :empty/step1)
+                "\n"
+                (i18n/t :empty/step2)
+                "\n"
+                (i18n/t :empty/step3)
+                "\n"
+                (i18n/t :empty/hint)))
           (for [b buttons]
             ($ button-row {:key (:id b) :id (:id b)
                            :label (:label b) :color (:color b)

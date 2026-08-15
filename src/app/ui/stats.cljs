@@ -3,7 +3,8 @@
   (:require [uix.core :refer [$ defui]]
             [uix.re-frame :refer [use-subscribe]]
             [react-native :as rn]
-            [app.theme :as theme]))
+            [app.theme :as theme]
+            [app.i18n :as i18n]))
 
 (defn- hex->rgba
   [hex a]
@@ -49,24 +50,24 @@
     ($ rn/View {:style {:flex 1 :padding 16 :background-color (:bg t)}}
        ($ rn/Text {:style {:font-size 24 :font-weight "700" :color (:text t)
                            :margin-bottom 16}}
-          "Статистика")
+        (i18n/t :tabs/stats)))
        ($ rn/View {:style {:flex-direction :row :margin-bottom 12}}
-          ($ stat-card {:title "Всего" :value (str (:total totals))})
-          ($ stat-card {:title "Серия" :value (if (zero? streak) "—" (str streak))
-                        :sub (if (zero? streak) "нет дней подряд" "дней подряд")})
-          ($ stat-card {:title "Лучший день" :value best-label}))
+          ($ stat-card {:title (i18n/t :stats/total) :value (str (:total totals))})
+          ($ stat-card {:title (i18n/t :stats/streak) :value (if (zero? streak) "—" (str streak))
+                        :sub (if (zero? streak) (i18n/t :stats/streak-zero) (i18n/tf :stats/streak-sub streak))})
+          ($ stat-card {:title (i18n/t :stats/best-day) :value best-label}))
        ($ rn/Text {:style {:font-size 16 :font-weight "600" :color (:text t)
-                           :margin-top 8 :margin-bottom 8}}
-          "По кнопкам")
+                            :margin-top 8 :margin-bottom 8}}
+          (i18n/t :stats/by-buttons))
        (if (empty? buttons)
          ($ rn/Text {:style {:font-size 15 :color (:text-faint t)}}
-            "Нет кнопок — добавьте в разделе «Кнопки».")
+            (i18n/t :stats/by-buttons-empty))
          (for [b buttons]
            ($ button-total-row {:key (:id b) :label (:label b) :color (:color b)
                                 :count (get (:by-button totals) (:id b) 0)})))
        ($ rn/Text {:style {:font-size 16 :font-weight "600" :color (:text t)
-                           :margin-top 16 :margin-bottom 8}}
-          "По часам")
+                            :margin-top 16 :margin-bottom 8}}
+          (i18n/t :stats/by-hour))
        ($ rn/View {:style {:flex-direction :row :flex-wrap :wrap}}
           (for [h (range 24)]
             (let [cnt (nth heatmap h)
@@ -83,4 +84,4 @@
                  ($ rn/Text {:style {:font-size 11 :color (if (> intensity 0.4)
                                                             (:text-on-accent t)
                                                             (:text-secondary t))}}
-                    (str h)))))))))
+                    (str h))))))))

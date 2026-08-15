@@ -6,16 +6,17 @@
             [react-native :as rn]
             [app.chart-geom :as geom]
             [app.theme :as theme]
+            [app.i18n :refer [t]]
             ["react-native-svg" :as svg]))
 
 (defonce pad 20.0)
 (defonce H 150.0)
 (defonce card-radius 12.0)
 
-(def ranges [{:k :day :label "сегодня"}
-             {:k :week :label "7д"}
-             {:k :month :label "30д"}
-             {:k :all :label "всё"}])
+(def ranges [{:k :day :label (t :charts/range-day)}
+             {:k :week :label (t :charts/range-week)}
+             {:k :month :label (t :charts/range-month)}
+             {:k :all :label (t :charts/range-all)}])
 
 (defn- fmt-time
   "ЧЧ:ММ по метке времени (мс)."
@@ -200,7 +201,7 @@
         chart (use-subscribe [:chart])]
     ($ rn/View {:style {:flex 1 :padding 16 :background-color (:bg t)}}
        ($ rn/Text {:style {:font-size 24 :font-weight "700" :color (:text t) :margin-bottom 12}}
-          "Графики")
+          (t :charts/title))
        ($ range-chips)
        ($ button-chips)
        ($ toggles)
