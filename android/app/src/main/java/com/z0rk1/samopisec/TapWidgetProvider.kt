@@ -76,9 +76,9 @@ class TapWidgetProvider : AppWidgetProvider() {
     } catch (e: IllegalArgumentException) {
       Color.parseColor("#1976D2")
     }
-view.setTextViewText(R.id.widget_label, label)
+  view.setTextViewText(R.id.widget_label, label)
   view.setInt(R.id.widget_button_root, "setBackgroundColor", color)
-  view.setString(R.id.widget_button_root, "setContentDescription", label)
+  view.setContentDescription(R.id.widget_button_root, label)
 
     val tap = Intent(context, TapWidgetProvider::class.java).apply {
       action = ACTION_TAP

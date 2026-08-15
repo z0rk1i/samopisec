@@ -224,3 +224,50 @@ Android: панель кнопок выше нав-бара, «Графики» 
 ### Результат
 `npm run lint` — 0 warnings; `npm run test` — 21/75 pass; `cljs:release` собирается.
 Артефакты (APK/iOS) НЕ пересобраны — только код и инструментарий.
+
+## ADR-0009 — Android-виджет не загружался на Android 16: `exported="true"` для receiver
+**Дата:** 2026-08-15
+**Статус:** accepted
+
+### Контекст
+На физическом устройстве с Android 16 виджет не появлялся/не грузился на домашнем
+экране, хотя на эмуляторе (Android 16, targetSdk 36) он рендерился и проверялся
+uiautomator'ом. Receiver `TapWidgetProvider` был объявлен `android:exported="false"`
+с самого первого коммита (44a4a44). Виджет-провайдер должен быть exported: host
+(лаунчер) — отдельное приложение, которому нужно обнаруживать провайдера и
+связывать `appWidgetId`; не-exported receiver на реальных лаунчерах скрывается
+из пикера виджетов / не биндится.
+
+### Решение
+1. `android/app/src/main/AndroidManifest.xml`: `TapWidgetProvider` → `android:exported="true"`.
+2. Release APK пересобран (`./scripts/release.sh`, 73M), merged manifest подтверждает
+   `exported="true"`.
+
+### Результат
+Виджет доступен для добавления на домашний экран Android 16.
+
+## ADR-0010 — Android-виджет «Не удалось загрузить виджет»: `setContentDescription` через `setString` падает с ActionException
+**Дата:** 2026-08-15
+**Статус:** accepted
+
+### Контекст
+После фикса exported (ADR-0009) виджет стал появляться в пикере, но при добавлении
+лаунчер показывал «Не удалось загрузить виджет». Строка a11y
+`view.setString(R.id.widget_button_root, "setContentDescription", label)`
+(добавлена в 8fa66e4) падает при применении RemoteViews: `ReflectionAction` со
+строковым типом вызывает `Class.getMethod("setContentDescription", String.class)`,
+а метод объявлен как `View.setContentDescription(CharSequence)` — точного
+совпадения типов нет → `ActionException`, host показывает ошибку загрузки. Баг
+не всплывал ранее: после 8fa66e4 APK не пересобирали, а проверенный виджет был
+без этой строки.
+
+### Решение
+Заменить на штатный API `RemoteViews.setContentDescription(viewId, label)`
+(использует тип CHAR_SEQUENCE → метод резолвится корректно). Изменение в
+`TapWidgetProvider.kt:81`.
+
+### Результат
+Верифицировано на эмуляторе Android 16 (SDK 36, AVD samopisec): виджет добавлен,
+`buildViews` с 2 кнопками («Чай»/«Кофе») применился без ActionException, обе
+кнопки отрисованы (content-desc видны в accessibility-дереве). APK пересобран
+(73M).

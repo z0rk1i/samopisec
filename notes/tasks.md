@@ -86,7 +86,40 @@
 - [x] E1: очередь записи в storage (сериализация тапов, warn на ошибки)
 - [x] ADR-0008
 
-## Следующие шаги
-- [ ] тест на физических устройствах (iPhone/Android)
-- [ ] lock screen виджет (вторично по ADR-0001)
-- [ ] разобраться с iOS app/widget desync (app читает Documents, виджет — app group; см. ADR-0005 / память #24)
+## Сессия 2026-08-15 — Android 16: виджет не грузился (exported + ActionException)
+- [x] фикс 1: `TapWidgetProvider` в манифесте `android:exported="true"` (было false — лаунчер не видел провайдера)
+- [x] фикс 2: `setString(id, "setContentDescription", ...)` → `setContentDescription(id, ...)` — setString падал ActionException при применении RemoteViews
+- [x] release APK пересобран (73M), ADR-0009 и ADR-0010
+- [x] верификация на эмуляторе Android 16: виджет добавлен, кнопки «Чай»/«Кофе» отрисованы без ошибок
+
+## Роадмап улучшений (2026-08-15)
+
+### P1 — Надёжность
+- [ ] iOS app/widget рассинхрон: `storage.cljs` фолбэчится на `Paths.document`,
+      виджет читает App Group → разобрать `appleSharedContainers`, гарантировать запись
+      в `group.com.z0rk1.samopisec` (память #24, ADR-0005)
+- [ ] тест на физических устройствах: Android (adb), iOS (developer-provisioning, без EAS)
+- [ ] гонка записи `datapoints.jsonl` Android: виджет (Java appendText) vs приложение
+      (expo-file-system) → сериализовать доступ
+
+### P2 — Данные
+- [ ] чтение всего JSONL при старте/графиках → компакция/архив старых поинтов,
+      агрегатные снапшоты по дням
+- [ ] мемоизация селекторов `:chart/series`, `:today/counts` (re-frame signal)
+
+### P3 — Функциональность
+- [ ] undo последнего нажатия (случайные тапы на виджете) — буфер + кнопка в приложении
+- [ ] редактирование кнопок: label/цвет/порядок (`:config/update` есть, UI нет)
+- [ ] экран статистики: лучший день, серии, heatmap по часам, итоги per-button
+- [ ] lock screen виджет Android 16 (вторично по ADR-0001)
+- [ ] iOS Live Activity / Lock Screen — вторично (ADR-0001)
+
+### P4 — UX
+- [ ] i18n: вынести хардкод-строки в словарь
+- [ ] онбординг / пустые состояния
+- [ ] эмодзи в label, иконка приложения
+
+### P5 — Инженерия
+- [ ] native-тесты контракта (Kotlin/Swift)
+- [ ] валидация config.json в нативе (сейчас только CLJS)
+- [ ] CI: тесты + lint + сборки по push
