@@ -59,7 +59,7 @@
 
 (defn- read-lines
   "Текст файла, разобранный как JSONL, либо [] (файла нет)."
-  [f]
+  [^fs/File f]
   (if (.-exists f)
     (-> (.text f) (.then jsonl/parse-jsonl))
     (js/Promise.resolve [])))

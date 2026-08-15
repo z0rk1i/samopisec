@@ -1,6 +1,6 @@
 (ns app.ui.charts
   (:require [clojure.string :as str]
-            [uix.core :refer [$ defui]]
+            [uix.core :refer [$ defui] :as uix]
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
             [react-native :as rn]
@@ -51,8 +51,9 @@
   (let [t (theme/use-theme)
         {:keys [width]} (rn/useWindowDimensions)
         W (max 200.0 (- width 32.0))
-        pts-raw (geom/decimate points max-polyline-points)
-        n (geom/norm-points pts-raw H pad)
+        n (uix.core/use-memo
+           (fn [] (geom/norm-points (geom/decimate points max-polyline-points) H pad))
+           [points H pad])
         pts (:pts n)
         maxy (:maxy n)
         miny (:miny n)
