@@ -6,6 +6,7 @@
   (:require [clojure.string :as str]
             [app.jsonl :as jsonl]
             [app.contract :as contract]
+            [app.compact :as compact]
             [react-native :as rn]
             ["expo-file-system" :as fs]))
 
@@ -49,19 +50,32 @@
 (defn- dp-file []
   (make-file "datapoints.jsonl"))
 
+(defn- dp-archive-file []
+  (make-file "datapoints-archive.jsonl"))
+
 (defn- cfg-file []
   (make-file "config.json"))
 
+(defn- read-lines
+  "Текст файла, разобранный как JSONL, либо [] (файла нет)."
+  [f]
+  (if (.-exists f)
+    (-> (.text f) (.then jsonl/parse-jsonl))
+    (js/Promise.resolve [])))
+
 (defn read-datapoints
-  "Возвращает Promise<[datapoint]>. Поинты отсортированы по времени.
-   Невалидные записи отбрасываются."
+  "Возвращает Promise<[datapoint]>, отсортированные по времени.
+   Читает основной файл + архив (старые поинты после компакции — чтобы диапазон
+   «всё» и статистика оставались полными). Невалидные записи отбрасываются."
   []
-  (let [f (dp-file)]
-    (if (.-exists f)
-      (-> (.text f)
-          (.then jsonl/parse-jsonl)
-          (.then contract/normalize-datapoints))
-      (js/Promise.resolve []))))
+  (let [main (dp-file)
+        arch (dp-archive-file)]
+    (-> (js/Promise.all #js [(read-lines main) (read-lines arch)])
+        (.then (fn [[a b]]
+                 (->> (concat a b)
+                      contract/normalize-datapoints
+                      (sort-by :ts)
+                      vec))))))
 
 (defonce ^:private write-queue (js/Promise.resolve nil))
 
@@ -130,11 +144,9 @@
   "Сколько последних дней сырых поинтов хранится в основном файле."
   90)
 
-(defn- dp-archive-file []
-  (make-file "datapoints-archive.jsonl"))
-
 (defn compact-datapoints!
   "Компакция datapoints.jsonl (см. compact-threshold/retention-days).
+   Разделение поинтов на свежие/старые — чистый app.compact/split.
    Возвращает Promise, резолвится в число перенесённых в архив точек (0 = не было)."
   []
   (let [f (dp-file)]
@@ -147,20 +159,18 @@
                          n (count lines)]
                      (if (<= n compact-threshold)
                        0
-                       (let [cutoff (- (js/Date.now) (* retention-days 86400000))
-                             old? (fn [line]
-                                    (let [ts (try (js/Number (aget (js/JSON.parse line) "ts"))
-                                                  (catch :default _ nil))]
-                                      (and ts (< ts cutoff))))
-                             kept (vec (remove old? lines))
-                             dropped (vec (filter old? lines))]
-                         (when (seq dropped)
+                       (let [dps (jsonl/parse-jsonl (str/join "\n" lines))
+                             cut (compact/cutoff-ms (js/Date.now) retention-days)
+                             {:keys [kept dropped]} (compact/split dps cut)
+                             dropped-count (count dropped)]
+                         (when (pos? dropped-count)
                            (let [a (dp-archive-file)
                                  append-arch (fn []
                                                (-> (.text a)
                                                    (.then (fn [arch]
                                                             (.write a (str (or arch "")
-                                                                           (str/join "\n" dropped) "\n"))))
+                                                                            (str/join "\n" (map #(js/JSON.stringify (clj->js %)) dropped))
+                                                                            "\n"))))
                                                    (.catch (fn [e]
                                                              (js/console.warn "compact archive failed" e)))))]
                              (if (.-exists a)
@@ -170,11 +180,11 @@
                                    (.catch (fn [e]
                                              (js/console.warn "compact archive create failed" e)))))))
                          (if (seq kept)
-                           (.write f (str (str/join "\n" kept) "\n"))
+                           (.write f (str (str/join "\n" (map #(js/JSON.stringify (clj->js %)) kept)) "\n"))
                            (.delete f))
-                         (count dropped)))))))
-           (.catch (fn [e] (js/console.warn "storage compact failed" e) 0)))
-       0))
+                         dropped-count)))))
+          (.catch (fn [e] (js/console.warn "storage compact failed" e) 0)))
+      0)))
 
 (defn read-config
   "Возвращает Promise<config> (map {:buttons [..]}). Битый JSON -> пустой конфиг,
