@@ -58,9 +58,66 @@
           ($ rn/Text {:style {:color (:text-on-accent t) :font-size 16 :font-weight "600"}}
              "Добавить")))))
 
+(defui edit-button-form [{:keys [id label color on-save on-cancel]}]
+  (let [t (theme/use-theme)
+        [*label set-label!] (uix.core/use-state label)
+        [*color set-color!] (uix.core/use-state color)]
+    ($ rn/View {:style {:border-width 1 :border-color (:border t) :border-radius 8
+                        :padding 10 :background-color (:card t) :margin-top 8}}
+       ($ rn/TextInput {:value *label
+                        :on-change-text set-label!
+                        :placeholder "Название"
+                        :placeholder-text-color (:text-faint t)
+                        :style {:border-width 1 :border-color (:input-border t)
+                                :border-radius 8 :padding 8 :font-size 15
+                                :color (:text t) :background-color (:bg t)}})
+       ($ rn/View {:style {:flex-direction :row :margin-top 8 :flex-wrap :wrap}}
+          (for [c colors]
+            ($ rn/Pressable {:key c
+                             :on-press #(set-color! c)
+                             :accessibility-label (str "Цвет " c)
+                             :style {:width 24 :height 24 :border-radius 12
+                                     :background-color c :margin-right 6 :margin-bottom 6
+                                     :border-width (if (= c *color) 2 0)
+                                     :border-color "#000"}})))
+       ($ rn/View {:style {:flex-direction :row :margin-top 8 :align-items :center}}
+          ($ rn/Text {:style {:font-size 13 :color (:text-secondary t) :margin-right 10}}
+             "Порядок:")
+          ($ rn/Pressable {:on-press (fn []
+                                       (rf/dispatch [:config/move id :up])
+                                       (rf/dispatch [:config/commit]))
+                           :accessibility-label "Переместить выше"
+                           :style {:padding 6 :border-width 1 :border-color (:input-border t)
+                                   :border-radius 6 :margin-right 6}}
+             ($ rn/Text {:style {:font-size 14 :color (:accent t)}} "↑"))
+          ($ rn/Pressable {:on-press (fn []
+                                       (rf/dispatch [:config/move id :down])
+                                       (rf/dispatch [:config/commit]))
+                           :accessibility-label "Переместить ниже"
+                           :style {:padding 6 :border-width 1 :border-color (:input-border t)
+                                   :border-radius 6}}
+             ($ rn/Text {:style {:font-size 14 :color (:accent t)}} "↓")))
+       ($ rn/View {:style {:flex-direction :row :margin-top 8}}
+          ($ rn/Pressable {:on-press #(on-save *label *color)
+                           :accessibility-label "Сохранить изменения"
+                           :style {:padding 8 :background-color (:accent t)
+                                   :border-radius 6 :margin-right 8}}
+             ($ rn/Text {:style {:color (:text-on-accent t) :font-size 14}} "Сохранить"))
+          ($ rn/Pressable {:on-press on-cancel
+                           :accessibility-label "Отменить редактирование"
+                           :style {:padding 8 :border-width 1 :border-color (:input-border t)
+                                   :border-radius 6}}
+             ($ rn/Text {:style {:color (:text-secondary t) :font-size 14}} "Отмена"))))))
+
 (defui button-row [{:keys [id label color count]}]
   (let [t (theme/use-theme)
+        [*editing? set-editing!] (uix.core/use-state false)
         record! #(rf/dispatch [:data/record id])
+        save! (fn [new-label new-color]
+                (when (seq new-label)
+                  (rf/dispatch [:config/update id {:label new-label :color new-color}])
+                  (rf/dispatch [:config/commit]))
+                (set-editing! false))
         remove! (fn []
                   (rn/Alert.alert
                    "Удалить кнопку?"
@@ -70,25 +127,34 @@
                          :onPress (fn []
                                     (rf/dispatch [:config/remove id])
                                     (rf/dispatch [:config/commit]))}]))]
-    ($ rn/View {:style {:flex-direction :row :align-items :center
-                        :padding 10 :border-width 1 :border-color (:border t)
-                        :border-radius 8 :margin-bottom 8
-                        :background-color (:card t)}}
-       ($ rn/View {:style {:width 16 :height 16 :border-radius 8
-                           :background-color color :margin-right 10}})
-       ($ rn/Text {:style {:flex 1 :font-size 16 :color (:text t)}} label)
-       ($ rn/Text {:style {:font-size 14 :color (:text-secondary t) :margin-right 12}}
-          (if (zero? count) "0" (str count)))
-       ($ rn/Pressable {:on-press record!
-                        :accessibility-label (str "Записать нажатие «" label "»")
-                        :style {:padding 8 :background-color (:success t)
-                                :border-radius 6 :margin-right 8}}
-          ($ rn/Text {:style {:color (:text-on-accent t)}} "Жми"))
-       ($ rn/Pressable {:on-press remove!
-                        :accessibility-label (str "Удалить кнопку «" label "»")
-                        :style {:padding 8 :background-color (:remove-bg t)
-                                :border-radius 6}}
-          ($ rn/Text {:style {:color (:danger t)}} "✕")))))
+    ($ rn/View {:style {:margin-bottom 8}}
+       ($ rn/View {:style {:flex-direction :row :align-items :center
+                           :padding 10 :border-width 1 :border-color (:border t)
+                           :border-radius 8 :margin-bottom 0
+                           :background-color (:card t)}}
+          ($ rn/View {:style {:width 16 :height 16 :border-radius 8
+                              :background-color color :margin-right 10}})
+          ($ rn/Text {:style {:flex 1 :font-size 16 :color (:text t)}} label)
+          ($ rn/Text {:style {:font-size 14 :color (:text-secondary t) :margin-right 12}}
+             (if (zero? count) "0" (str count)))
+          ($ rn/Pressable {:on-press record!
+                           :accessibility-label (str "Записать нажатие «" label "»")
+                           :style {:padding 8 :background-color (:success t)
+                                   :border-radius 6 :margin-right 8}}
+             ($ rn/Text {:style {:color (:text-on-accent t)}} "Жми"))
+          ($ rn/Pressable {:on-press #(set-editing! (not *editing?))
+                           :accessibility-label (str "Редактировать кнопку «" label "»")
+                           :style {:padding 8 :background-color (:remove-bg t)
+                                   :border-radius 6 :margin-right 8}}
+             ($ rn/Text {:style {:color (:accent t)}} "✎"))
+          ($ rn/Pressable {:on-press remove!
+                           :accessibility-label (str "Удалить кнопку «" label "»")
+                           :style {:padding 8 :background-color (:remove-bg t)
+                                   :border-radius 6}}
+             ($ rn/Text {:style {:color (:danger t)}} "✕")))
+       (when *editing?
+         ($ edit-button-form {:id id :label label :color color
+                              :on-save save! :on-cancel #(set-editing! false)})))))
 
 (defui screen []
   (let [t (theme/use-theme)

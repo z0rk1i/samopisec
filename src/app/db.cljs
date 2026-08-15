@@ -61,6 +61,20 @@
           (mapv (fn [b] (if (= id (:id b)) (merge b patch) b))
                 (:buttons db)))))
 
+(rf/reg-event-db
+ :config/move
+ (fn [db [_ id dir]]
+   (let [bs (:buttons db)
+         i (some (fn [[idx b]] (when (= id (:id b)) idx))
+                 (map-indexed vector bs))]
+     (if (or (nil? i)
+             (and (= dir :up) (zero? i))
+             (and (= dir :down) (= i (dec (count bs)))))
+       db
+       (let [j (if (= dir :up) (dec i) (inc i))
+             bs (vec (assoc bs i (nth bs j) j (nth bs i)))]
+         (assoc db :buttons bs))))))
+
 (rf/reg-fx
  :storage/save-config
  (fn [cfg]
