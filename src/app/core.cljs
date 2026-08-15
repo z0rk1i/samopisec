@@ -7,6 +7,7 @@
             [re-frame.core :as rf]
             [app.db]
             [app.theme :as theme]
+            [app.storage :as storage]
             [app.ui.config :as config-screen]
             [app.ui.charts :as charts-screen]))
 
@@ -44,6 +45,7 @@
      ($ content)))
 
 (defn ^:export init []
+  (js/console.log "samopisec storage:" (js/JSON.stringify (clj->js (storage/storage-location))))
   (rf/dispatch-sync [:app/init])
   (rf/dispatch [:storage/load])
   (when (exists? (.-AppState rn))
