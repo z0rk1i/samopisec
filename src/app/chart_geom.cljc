@@ -25,3 +25,17 @@
   [t start end W pad]
   (let [span (max 1.0 (- end start))]
     (+ pad (* (- W (* 2 pad)) (/ (- t start) span)))))
+
+(defn decimate
+  "Прореживает точки до ≤ max-points равномерным шагом, сохраняя первую и
+   последнюю. Не более max-points — SVG из 50k+ точек тормозит на телефонах."
+  [points max-points]
+  (let [n (count points)]
+    (cond
+      (or (zero? n) (<= max-points 0)) []
+      (<= n max-points) points
+      (= max-points 1) [(first points)]
+      :else
+      (let [step (/ (dec n) (dec max-points))]
+        (mapv (fn [i] (nth points (int (* i step))))
+              (range max-points))))))

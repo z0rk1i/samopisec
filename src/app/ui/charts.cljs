@@ -13,6 +13,10 @@
 (defonce H 150.0)
 (defonce card-radius 12.0)
 
+(def ^:private max-polyline-points
+  "Ограничение числа точек полилинии SVG — децимация в chart-card."
+  400)
+
 (def ranges [{:k :day :label (t :charts/range-day)}
              {:k :week :label (t :charts/range-week)}
              {:k :month :label (t :charts/range-month)}
@@ -47,7 +51,8 @@
   (let [t (theme/use-theme)
         {:keys [width]} (rn/useWindowDimensions)
         W (max 200.0 (- width 32.0))
-        n (geom/norm-points points H pad)
+        pts-raw (geom/decimate points max-polyline-points)
+        n (geom/norm-points pts-raw H pad)
         pts (:pts n)
         maxy (:maxy n)
         miny (:miny n)
