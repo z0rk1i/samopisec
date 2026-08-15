@@ -115,18 +115,27 @@
 
 (rf/reg-event-fx
  :data/undo
- (fn [_ _]
-   (-> (storage/delete-last-datapoint!)
-       (.then #(rf/dispatch [:data/undone %]))
-       (.catch (fn [_] (rf/dispatch [:data/undone nil]))))
-   nil))
+ (fn [{:keys [db]} _]
+   (if-let [last-dp (peek (:datapoints db))]
+     {:db db
+      :storage/delete-datapoint (:id last-dp)}
+     nil)))
+
+(rf/reg-fx
+ :storage/delete-datapoint
+ (fn [id]
+   (-> (storage/delete-datapoint! id)
+       (.then (fn [removed?]
+                (when removed?
+                  (rf/dispatch [:data/undone id]))))
+       (.catch (fn [e] (js/console.warn "storage delete failed" e))))))
 
 (rf/reg-event-fx
  :data/undone
- (fn [{:keys [db]} [_ removed]]
-   {:db (if (and removed (string? (:id removed)))
+ (fn [{:keys [db]} [_ id]]
+   {:db (if (string? id)
           (let [dps (->> (:datapoints db)
-                         (remove #(= (:id %) (:id removed)))
+                         (remove #(= (:id %) id))
                          vec)]
             (assoc db :datapoints dps))
           db)

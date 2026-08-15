@@ -87,30 +87,38 @@
        (.write f (str (js/JSON.stringify (clj->js dp)) "\n")
                #js {:append true})))))
 
-(defn delete-last-datapoint!
-  "Удаляет последний непустой datapoint из JSONL (для undo). Возвращает Promise,
-   резолвится в удалённый datapoint (map) либо nil (файла нет / нечего удалять).
-   Сознательно не через write-queue: операция редкая и пользовательская, зато
-   возвращает удалённую запись для синхронизации состояния."
-  []
-  (let [f (dp-file)]
-    (if (.-exists f)
-      (-> (.text f)
-          (.then (fn [text]
-                   (let [lines (->> (str/split-lines (or text ""))
-                                    (filter seq)
-                                    (vec))
-                         last-line (peek lines)
-                         rest-lines (vec (butlast lines))]
-                     (when last-line
-                       (if (seq rest-lines)
-                         (.write f (str (str/join "\n" rest-lines) "\n"))
-                         (.delete f))
-                       (try
-                         (js->clj (js/JSON.parse last-line) :keywordize-keys true)
-                         (catch :default _ nil))))))
-          (.catch (fn [e] (js/console.warn "storage delete-last failed" e) nil)))
-      (js/Promise.resolve nil))))
+(defn- line-id
+  "id дата-поинта из строки JSONL, либо nil (битая строка)."
+  [line]
+  (try
+    (:id (js->clj (js/JSON.parse line) :keywordize-keys true))
+    (catch :default _ nil)))
+
+(defn delete-datapoint!
+  "Удаляет дата-поинт с данным id из JSONL (для undo). Идёт через write-queue —
+   сериализуется с тапами (виджет пишет напрямую, но атомарным append, гонки
+   чтение-перезапись тут нет — только между on-demand-операциями приложения).
+   Возвращает Promise<boolean> — удалён ли поинт. Удаление по id, а не по позиции:
+   последней строкой может быть нажатие с виджета, которое пользователь не делал."
+  [id]
+  (enqueue!
+   (fn []
+     (let [f (dp-file)]
+       (if (.-exists f)
+         (-> (.text f)
+             (.then (fn [text]
+                      (let [lines (->> (str/split-lines (or text ""))
+                                       (filter seq)
+                                       (vec))
+                            kept (vec (remove #(= id (line-id %)) lines))]
+                        (if (= (count lines) (count kept))
+                          false
+                          (do
+                            (if (seq kept)
+                              (.write f (str (str/join "\n" kept) "\n"))
+                              (.delete f))
+                            true))))))
+         (js/Promise.resolve false))))))
 
 (def ^:const compact-threshold
   "Порог числа строк datapoints.jsonl: при превышении запускается компакция —
