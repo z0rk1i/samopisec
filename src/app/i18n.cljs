@@ -82,7 +82,9 @@
    :charts/filter-all "Все"
    :charts/filter-all-accessibility "Фильтр: все кнопки"
    :charts/show-rate "Скорость"
-   :charts/show-accel "Ускорение"})
+   :charts/show-accel "Ускорение"
+
+   :storage/error-dismiss "Закрыть"})
 
 (defn t
   "Строка по ключу; отсутствующий ключ возвращается как есть."

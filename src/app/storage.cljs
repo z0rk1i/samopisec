@@ -7,6 +7,7 @@
             [app.jsonl :as jsonl]
             [app.contract :as contract]
             [app.compact :as compact]
+            [re-frame.core :as rf]
             [react-native :as rn]
             ["expo-file-system" :as fs]))
 
@@ -79,6 +80,14 @@
 
 (defonce ^:private write-queue (js/Promise.resolve nil))
 
+(defn report-error!
+  "Единая точка репорта ошибок storage: console.warn + событие :storage/error,
+   которое UI показывает пользователю (баннер). Не бросает — ошибка хранения
+   не должна ронять очередь или UI."
+  [where e]
+  (js/console.warn (str "samopisec storage " where " failed") e)
+  (rf/dispatch [:storage/error (str (when where (str where ": ")) (or (.-message e) (str e)))]))
+
 (defn- enqueue!
   "Ставит асинхронную файловую операцию в очередь — гарантирует порядок записи
    и логирует ошибки, не разрывая цепочку."
@@ -86,7 +95,7 @@
   (set! write-queue
         (-> write-queue
             (.then (fn [] (op)))
-            (.catch (fn [e] (js/console.warn "storage write failed" e)))))
+            (.catch (fn [e] (report-error! "write" e)))))
   write-queue)
 
 (defn append-datapoint!
@@ -172,18 +181,18 @@
                                                                             (str/join "\n" (map #(js/JSON.stringify (clj->js %)) dropped))
                                                                             "\n"))))
                                                    (.catch (fn [e]
-                                                             (js/console.warn "compact archive failed" e)))))]
-                             (if (.-exists a)
+                                                             (report-error! "compact archive" e)))))]
+(if (.-exists a)
                                (append-arch)
                                (-> (.create a)
                                    (.then append-arch)
                                    (.catch (fn [e]
-                                             (js/console.warn "compact archive create failed" e)))))))
+                                             (report-error! "compact archive create" e)))))))
                          (if (seq kept)
                            (.write f (str (str/join "\n" (map #(js/JSON.stringify (clj->js %)) kept)) "\n"))
                            (.delete f))
                          dropped-count)))))
-          (.catch (fn [e] (js/console.warn "storage compact failed" e) 0)))
+          (.catch (fn [e] (report-error! "compact" e) 0)))
       0)))
 
 (defn read-config

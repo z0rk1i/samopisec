@@ -35,6 +35,17 @@
                                 :font-weight (if (= k screen) "600" "400")}}
                label))))))
 
+(defui error-banner []
+  (let [t (theme/use-theme)
+        err (use-subscribe [:storage/error])]
+    (when err
+      ($ rn/Pressable {:on-press #(rf/dispatch [:storage/error-dismiss])
+                       :accessibility-label (i18n/t :storage/error-dismiss)
+                       :style {:background-color (:danger t)
+                               :padding 12 :margin-horizontal 16 :margin-bottom 8
+                               :border-radius 8}}
+         ($ rn/Text {:style {:color (:text-on-accent t) :font-size 13}} err)))))
+
 (defui content []
   (let [screen (use-subscribe [:screen])
         insets (safe-area/useSafeAreaInsets)]
@@ -43,6 +54,7 @@
          (= screen :charts) ($ charts-screen/screen)
          (= screen :stats) ($ stats-screen/screen)
          :else ($ config-screen/screen))
+       ($ error-banner)
        ($ tab-bar))))
 
 (defui root []

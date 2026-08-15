@@ -11,6 +11,7 @@
    :buttons []
    :datapoints []
    :config/dirty false
+   :storage/error nil
    :chart {:range :day
            :button-id :all
            :show-rate false
@@ -28,10 +29,14 @@
  (fn [_ _]
    (-> (storage/read-datapoints)
        (.then #(rf/dispatch [:data/loaded %]))
-       (.catch #(rf/dispatch [:data/loaded []])))
+       (.catch (fn [e]
+                 (storage/report-error! "read-datapoints" e)
+                 (rf/dispatch [:data/loaded []]))))
    (-> (storage/read-config)
        (.then #(rf/dispatch [:config/loaded %]))
-       (.catch #(rf/dispatch [:config/loaded {:buttons []}])))
+       (.catch (fn [e]
+                 (storage/report-error! "read-config" e)
+                 (rf/dispatch [:config/loaded {:buttons []}]))))
    nil))
 
 (rf/reg-event-db
@@ -56,7 +61,7 @@
                 (when (pos? (or dropped 0))
                   (js/console.log (str "samopisec: компакция — в архив перенесено " dropped " точек"))
                   (rf/dispatch [:storage/load]))))
-       (.catch (fn [e] (js/console.warn "samopisec: компакция не удалась" e))))))
+       (.catch (fn [e] (storage/report-error! "compact/run" e))))))
 
 (rf/reg-event-db
  :config/add
@@ -139,7 +144,7 @@
        (.then (fn [removed?]
                 (when removed?
                   (rf/dispatch [:data/undone id]))))
-       (.catch (fn [e] (js/console.warn "storage delete failed" e))))))
+       (.catch (fn [e] (storage/report-error! "delete-datapoint" e))))))
 
 (rf/reg-event-fx
  :data/undone
@@ -150,6 +155,16 @@
                          vec)]
             (assoc db :datapoints dps))
           db)}))
+
+(rf/reg-event-db
+ :storage/error
+ (fn [db [_ msg]]
+   (assoc db :storage/error msg)))
+
+(rf/reg-event-db
+ :storage/error-dismiss
+ (fn [db _]
+   (assoc db :storage/error nil)))
 
 (rf/reg-event-db
  :screen/set
@@ -178,6 +193,10 @@
 (rf/reg-sub
  :chart
  (fn [db _] (:chart db)))
+
+(rf/reg-sub
+ :storage/error
+ (fn [db _] (:storage/error db)))
 
 (rf/reg-sub
  :chart/series
