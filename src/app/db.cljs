@@ -85,6 +85,25 @@
      (storage/append-datapoint! dp)
      {:db (update db :datapoints conj dp)})))
 
+(rf/reg-event-fx
+ :data/undo
+ (fn [_ _]
+   (-> (storage/delete-last-datapoint!)
+       (.then #(rf/dispatch [:data/undone %]))
+       (.catch (fn [_] (rf/dispatch [:data/undone nil]))))
+   nil))
+
+(rf/reg-event-fx
+ :data/undone
+ (fn [{:keys [db]} [_ removed]]
+   {:db (if (and removed (string? (:id removed)))
+          (let [dps (->> (:datapoints db)
+                         (remove #(= (:id %) (:id removed)))
+                         vec)]
+            (assoc db :datapoints dps))
+          db)
+    :widget/refresh nil}))
+
 (rf/reg-event-db
  :screen/set
  (fn [db [_ screen]]

@@ -94,6 +94,8 @@
   (let [t (theme/use-theme)
         buttons (use-subscribe [:buttons])
         counts (use-subscribe [:today/counts])
+        datapoints (use-subscribe [:datapoints])
+        can-undo? (seq datapoints)
         export! (fn []
                   (-> (js/Promise.all #js [(storage/read-config) (storage/read-datapoints)])
                       (.then (fn [res]
@@ -112,6 +114,15 @@
           ($ rn/Text {:style {:font-size 14 :color (:text-secondary t)}}
              (str "сегодня: " (:total counts)))
           ($ rn/View {:style {:flex 1}})
+          ($ rn/Pressable {:on-press #(rf/dispatch [:data/undo])
+                           :accessibility-label "Отменить последнее нажатие"
+                           :disabled (not can-undo?)
+                           :style {:padding 8 :border-width 1
+                                   :border-color (if can-undo? (:input-border t) (:border t))
+                                   :border-radius 6 :margin-right 8}}
+             ($ rn/Text {:style {:color (if can-undo? (:accent t) (:text-faint t))
+                                 :font-size 14}}
+                "Отменить"))
           ($ rn/Pressable {:on-press export!
                            :accessibility-label "Экспорт данных"
                            :style {:padding 8 :border-width 1 :border-color (:input-border t)

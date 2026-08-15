@@ -3,7 +3,8 @@
    Датaпоинты — JSONL (строка на событие), конфиг — JSON. iOS: общий App Group
    контейнер (виджет WidgetKit читает только оттуда); Android: document dir
    (= filesDir, оттуда же читает TapWidgetProvider)."
-  (:require [app.jsonl :as jsonl]
+  (:require [clojure.string :as str]
+            [app.jsonl :as jsonl]
             [app.contract :as contract]
             [react-native :as rn]
             ["expo-file-system" :as fs]))
@@ -85,6 +86,31 @@
          (.create f))
        (.write f (str (js/JSON.stringify (clj->js dp)) "\n")
                #js {:append true})))))
+
+(defn delete-last-datapoint!
+  "Удаляет последний непустой datapoint из JSONL (для undo). Возвращает Promise,
+   резолвится в удалённый datapoint (map) либо nil (файла нет / нечего удалять).
+   Сознательно не через write-queue: операция редкая и пользовательская, зато
+   возвращает удалённую запись для синхронизации состояния."
+  []
+  (let [f (dp-file)]
+    (if (.-exists f)
+      (-> (.text f)
+          (.then (fn [text]
+                   (let [lines (->> (str/split-lines (or text ""))
+                                    (filter seq)
+                                    (vec))
+                         last-line (peek lines)
+                         rest-lines (vec (butlast lines))]
+                     (when last-line
+                       (if (seq rest-lines)
+                         (.write f (str (str/join "\n" rest-lines) "\n"))
+                         (.delete f))
+                       (try
+                         (js->clj (js/JSON.parse last-line) :keywordize-keys true)
+                         (catch :default _ nil))))))
+          (.catch (fn [e] (js/console.warn "storage delete-last failed" e) nil)))
+      (js/Promise.resolve nil))))
 
 (defn read-config
   "Возвращает Promise<config> (map {:buttons [..]}). Битый JSON -> пустой конфиг,
