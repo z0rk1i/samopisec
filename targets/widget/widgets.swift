@@ -31,10 +31,13 @@ enum WidgetStore {
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           let arr = json["buttons"] as? [[String: Any]] else { return [] }
     return arr.prefix(6).compactMap { b in
-      guard let id = b["id"] as? String else { return nil }
+      guard let id = b["id"] as? String,
+            let label = b["label"] as? String,
+            !id.trimmingCharacters(in: .whitespaces).isEmpty,
+            !label.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
       return ButtonInfo(
         id: id,
-        label: b["label"] as? String ?? "?",
+        label: label,
         colorHex: b["color"] as? String ?? "#1976D2"
       )
     }

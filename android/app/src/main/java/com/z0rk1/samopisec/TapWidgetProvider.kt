@@ -99,7 +99,14 @@ class TapWidgetProvider : AppWidgetProvider() {
     return try {
       val arr = JSONObject(file.readText()).optJSONArray("buttons")
       if (arr == null) emptyList()
-      else (0 until arr.length()).map { arr.getJSONObject(it) }
+      else (0 until arr.length()).mapNotNull { i ->
+        val b = try {
+          arr.getJSONObject(i)
+        } catch (e: Exception) {
+          null
+        }
+        if (b != null && !b.optString("id", "").isBlank() && !b.optString("label", "").isBlank()) b else null
+      }
     } catch (e: Exception) {
       emptyList()
     }
