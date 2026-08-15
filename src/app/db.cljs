@@ -38,10 +38,24 @@
  (fn [db [_ cfg]]
    (assoc db :buttons (or (:buttons cfg) []))))
 
-(rf/reg-event-db
+(rf/reg-event-fx
  :data/loaded
- (fn [db [_ dps]]
-   (assoc db :datapoints (or dps []))))
+ (fn [{:keys [db]} [_ dps]]
+   (let [dps (or dps [])]
+     (if (> (count dps) storage/compact-threshold)
+       {:db (assoc db :datapoints dps)
+        :compact/run nil}
+       {:db (assoc db :datapoints dps)}))))
+
+(rf/reg-fx
+ :compact/run
+ (fn [_]
+   (-> (storage/compact-datapoints!)
+       (.then (fn [dropped]
+                (when (pos? (or dropped 0))
+                  (js/console.log (str "samopisec: компакция — в архив перенесено " dropped " точек"))
+                  (rf/dispatch [:storage/load]))))
+       (.catch (fn [e] (js/console.warn "samopisec: компакция не удалась" e))))))
 
 (rf/reg-event-db
  :config/add

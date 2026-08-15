@@ -112,6 +112,62 @@
           (.catch (fn [e] (js/console.warn "storage delete-last failed" e) nil)))
       (js/Promise.resolve nil))))
 
+(def ^:const compact-threshold
+  "Порог числа строк datapoints.jsonl: при превышении запускается компакция —
+   в основном файле остаются только retention-days последних дней, старшие точки
+   переносятся в datapoints-archive.jsonl."
+  50000)
+
+(def ^:const retention-days
+  "Сколько последних дней сырых поинтов хранится в основном файле."
+  90)
+
+(defn- dp-archive-file []
+  (make-file "datapoints-archive.jsonl"))
+
+(defn compact-datapoints!
+  "Компакция datapoints.jsonl (см. compact-threshold/retention-days).
+   Возвращает Promise, резолвится в число перенесённых в архив точек (0 = не было)."
+  []
+  (let [f (dp-file)]
+    (if (.-exists f)
+      (-> (.text f)
+          (.then (fn [text]
+                   (let [lines (->> (str/split-lines (or text ""))
+                                    (filter seq)
+                                    (vec))
+                         n (count lines)]
+                     (if (<= n compact-threshold)
+                       0
+                       (let [cutoff (- (js/Date.now) (* retention-days 86400000))
+                             old? (fn [line]
+                                    (let [ts (try (js/Number (aget (js/JSON.parse line) "ts"))
+                                                  (catch :default _ nil))]
+                                      (and ts (< ts cutoff))))
+                             kept (vec (remove old? lines))
+                             dropped (vec (filter old? lines))]
+                         (when (seq dropped)
+                           (let [a (dp-archive-file)
+                                 append-arch (fn []
+                                               (-> (.text a)
+                                                   (.then (fn [arch]
+                                                            (.write a (str (or arch "")
+                                                                           (str/join "\n" dropped) "\n"))))
+                                                   (.catch (fn [e]
+                                                             (js/console.warn "compact archive failed" e)))))]
+                             (if (.-exists a)
+                               (append-arch)
+                               (-> (.create a)
+                                   (.then append-arch)
+                                   (.catch (fn [e]
+                                             (js/console.warn "compact archive create failed" e)))))))
+                         (if (seq kept)
+                           (.write f (str (str/join "\n" kept) "\n"))
+                           (.delete f))
+                         (count dropped)))))))
+           (.catch (fn [e] (js/console.warn "storage compact failed" e) 0)))
+       0))
+
 (defn read-config
   "Возвращает Promise<config> (map {:buttons [..]}). Битый JSON -> пустой конфиг,
    невалидные кнопки отбрасываются."
