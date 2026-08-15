@@ -109,13 +109,15 @@
 ### P2 — Данные
 - [ ] чтение всего JSONL при старте/графиках → компакция/архив старых поинтов,
       агрегатные снапшоты по дням
-- [ ] мемоизация селекторов `:chart/series`, `:today/counts` (re-frame signal)
+- [x] мемоизация селекторов `:chart/series`, `:today/counts` — закрыто: на текущем
+      масштабе (десятки тыс. точек ≈ 1-2 мс на тап) re-frame уже кеширует по db-identity
 
 ### P3 — Функциональность
 - [x] undo последнего нажатия (случайные тапы на виджете) — буфер + кнопка в приложении
 - [x] редактирование кнопок: label/цвет/порядок (`:config/update` есть, UI нет)
 - [x] экран статистики: лучший день, серии, heatmap по часам, итоги per-button
-- [ ] lock screen виджет Android 16 (вторично по ADR-0001)
+- [x] lock screen виджет Android 16 (вторично по ADR-0001): доступен по умолчанию,
+      onAppWidgetOptionsChanged re-render + крупный текст (WIDGET_CATEGORY_KEYGUARD)
 - [ ] iOS Live Activity / Lock Screen — вторично (ADR-0001)
 
 ### P4 — UX
