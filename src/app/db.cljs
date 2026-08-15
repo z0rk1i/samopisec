@@ -155,3 +155,23 @@
  :today/counts
  (fn [db _]
    (selectors/today-counts (:datapoints db) (js/Date.now))))
+
+(rf/reg-sub
+ :stats/totals
+ (fn [db _]
+   (selectors/per-button-totals (:datapoints db))))
+
+(rf/reg-sub
+ :stats/streak
+ (fn [db _]
+   (selectors/current-streak (:datapoints db) (js/Date.now))))
+
+(rf/reg-sub
+ :stats/best-day
+ (fn [db _]
+   (selectors/best-day (:datapoints db))))
+
+(rf/reg-sub
+ :stats/heatmap
+ (fn [db _]
+   (selectors/per-hour-heatmap (:datapoints db))))

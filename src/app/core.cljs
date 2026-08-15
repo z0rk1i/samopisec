@@ -9,7 +9,8 @@
             [app.theme :as theme]
             [app.storage :as storage]
             [app.ui.config :as config-screen]
-            [app.ui.charts :as charts-screen]))
+            [app.ui.charts :as charts-screen]
+            [app.ui.stats :as stats-screen]))
 
 (defui tab-bar []
   (let [t (theme/use-theme)
@@ -19,7 +20,7 @@
     ($ rn/View {:style {:flex-direction :row :border-top-width 1
                         :border-top-color (:border t)
                         :padding-bottom (+ 8 (.-bottom insets))}}
-       (for [[k label] [[:charts "Графики"] [:config "Кнопки"]]]
+       (for [[k label] [[:charts "Графики"] [:config "Кнопки"] [:stats "Статистика"]]]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! k)
                           :accessibility-label label
@@ -35,9 +36,10 @@
   (let [screen (use-subscribe [:screen])
         insets (safe-area/useSafeAreaInsets)]
     ($ rn/View {:style {:flex 1 :padding-top (.-top insets)}}
-       (if (= screen :charts)
-         ($ charts-screen/screen)
-         ($ config-screen/screen))
+       (cond
+         (= screen :charts) ($ charts-screen/screen)
+         (= screen :stats) ($ stats-screen/screen)
+         :else ($ config-screen/screen))
        ($ tab-bar))))
 
 (defui root []
