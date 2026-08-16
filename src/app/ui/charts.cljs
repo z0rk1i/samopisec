@@ -1,6 +1,6 @@
 (ns app.ui.charts
   (:require [clojure.string :as str]
-            [uix.core :refer [$ defui] :as uix]
+            [uix.core :refer [$ defui]]
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
             [react-native :as rn]
@@ -12,10 +12,6 @@
 (defonce pad 20.0)
 (defonce H 150.0)
 (defonce card-radius 12.0)
-
-(def ^:private max-polyline-points
-  "Ограничение числа точек полилинии SVG — децимация в chart-card."
-  400)
 
 (def ranges [{:k :day :label (t :charts/range-day)}
              {:k :week :label (t :charts/range-week)}
@@ -51,9 +47,7 @@
   (let [t (theme/use-theme)
         {:keys [width]} (rn/useWindowDimensions)
         W (max 200.0 (- width 32.0))
-        n (uix.core/use-memo
-           (fn [] (geom/norm-points (geom/decimate points max-polyline-points) H pad))
-           [points H pad])
+        n (geom/norm-points points H pad)
         pts (:pts n)
         maxy (:maxy n)
         miny (:miny n)

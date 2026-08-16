@@ -31,7 +31,7 @@
        (.then #(rf/dispatch [:data/loaded %]))
        (.catch (fn [e]
                  (storage/report-error! "read-datapoints" e)
-                 (rf/dispatch [:data/loaded []]))))
+                 (rf/dispatch [:data/loaded {:dps [] :main-count 0}]))))
    (-> (storage/read-config)
        (.then #(rf/dispatch [:config/loaded %]))
        (.catch (fn [e]
@@ -46,9 +46,9 @@
 
 (rf/reg-event-fx
  :data/loaded
- (fn [{:keys [db]} [_ dps]]
+ (fn [{:keys [db]} [_ {:keys [dps main-count]}]]
    (let [dps (or dps [])]
-     (if (> (count dps) storage/compact-threshold)
+     (if (> (or main-count 0) storage/compact-threshold)
        {:db (assoc db :datapoints dps)
         :compact/run nil}
        {:db (assoc db :datapoints dps)}))))

@@ -169,9 +169,9 @@
                                (let [data (clj->js {:export-version 1
                                                     :exported-at (js/Date.now)
                                                     :config (aget res 0)
-                                                    :datapoints (aget res 1)})]
+                                                    :datapoints (:dps (aget res 1))})]
                                  (.share (.-Share rn) #js {:message (js/JSON.stringify data)}))))
-                      (.catch (fn [e] (js/console.warn "export failed" e)))))]
+                      (.catch (fn [e] (storage/report-error! "export" e)))))]
     ($ rn/View {:style {:flex 1 :padding 16 :background-color (:bg t)}}
        ($ rn/View {:style {:flex-direction :row :align-items :baseline
                            :margin-bottom 16}}

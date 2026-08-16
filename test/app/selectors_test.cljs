@@ -1,6 +1,7 @@
 (ns app.selectors-test
   (:require [clojure.test :refer [deftest is testing]]
-            [app.selectors :as s]))
+            [app.selectors :as s]
+            [app.chart-geom :as geom]))
 
 (deftest range-window-test
   (let [D 86400000
@@ -116,6 +117,26 @@
           t0 (.getTime d)
           make (fn [h] (let [dd (js/Date. t0)] (.setHours dd h 30 0 0) {:id "a" :button-id "x" :ts (.getTime dd)}))
           res (s/per-hour-heatmap [(make h0) (make h0) (make (mod (inc h0) 24))])]
-        (is (= 24 (count res)))
-        (is (= 2 (nth res h0)))
-        (is (= 1 (nth res (mod (inc h0) 24)))))))
+      (is (= 24 (count res)))
+      (is (= 2 (nth res h0)))
+      (is (= 1 (nth res (mod (inc h0) 24)))))))
+
+(deftest series-decimation-test
+  (testing "big series decimates to ≤ max-polyline-points, keeps first/last"
+    (let [n (* geom/max-polyline-points 10)
+          dps (mapv (fn [i] {:id (str "d" i) :button-id "x" :ts (+ 1000 (* i 86400000))})
+                    (range n))
+          res (s/series {:range :all :button-id "x"} dps (+ 1000 (* n 86400000)))]
+      (is (<= (count (:cumulative res)) geom/max-polyline-points))
+      (is (= 1 (first (map second (:cumulative res)))) "первая точка — накопление 1")
+      (is (= n (second (last (:cumulative res)))) "последняя точка сохраняет итог")
+      (is (<= (count (:rate res)) geom/max-polyline-points))
+      (is (<= (count (:accel res)) geom/max-polyline-points))))
+  (testing "rate/accel stay aligned by index after decimation"
+    (let [n (* geom/max-polyline-points 10)
+          dps (mapv (fn [i] {:id (str "d" i) :button-id "x" :ts (+ 1000 (* i 86400000))})
+                    (range n))
+          res (s/series {:range :all :button-id "x"} dps (+ 1000 (* n 86400000)))
+          rates (:rate res)
+          accel (:accel res)]
+      (is (= (count rates) (count accel)) "rate и accel прорежены одинаково"))))

@@ -64,20 +64,6 @@
     (-> (.text f) (.then jsonl/parse-jsonl))
     (js/Promise.resolve [])))
 
-(defn read-datapoints
-  "Возвращает Promise<[datapoint]>, отсортированные по времени.
-   Читает основной файл + архив (старые поинты после компакции — чтобы диапазон
-   «всё» и статистика оставались полными). Невалидные записи отбрасываются."
-  []
-  (let [main (dp-file)
-        arch (dp-archive-file)]
-    (-> (js/Promise.all #js [(read-lines main) (read-lines arch)])
-        (.then (fn [[a b]]
-                 (->> (concat a b)
-                      contract/normalize-datapoints
-                      (sort-by :ts)
-                      vec))))))
-
 (defonce ^:private write-queue (js/Promise.resolve nil))
 
 (defn report-error!
@@ -90,13 +76,52 @@
 
 (defn- enqueue!
   "Ставит асинхронную файловую операцию в очередь — гарантирует порядок записи
-   и логирует ошибки, не разрывая цепочку."
+   и логирует ошибки, не разрывая цепочку. Ошибки op глотаются (report-error!),
+   очередь продолжает работать."
   [op]
   (set! write-queue
         (-> write-queue
             (.then (fn [] (op)))
             (.catch (fn [e] (report-error! "write" e)))))
   write-queue)
+
+(defn- replace-atomic!
+  "Атомарно заменяет содержимое f на content: пишет во временный файл в той же
+   директории и переименовывает поверх (moveSync overwrite). Читатели никогда не
+   видят частично записанный файл. Окно для гонки с виджетом (он дописывает в
+   конец напрямую) остаётся, но файл не портится — см. ADR."
+  [^fs/File f ^string content]
+  (let [tmp (make-file (str (.-name f) ".tmp"))]
+    (when (.-exists tmp)
+      (.delete tmp))
+    (.create tmp)
+    (.write tmp content)
+    (.moveSync tmp f #js {:overwrite true})
+    (when (.-exists tmp)
+      (.delete tmp))))
+
+(defn read-datapoints
+  "Возвращает Promise<{:dps [datapoint] :main-count n}>.
+   dps — отсортированные по времени поинты (основной файл + архив, чтобы
+   диапазон «всё» и статистика оставались полными). main-count — число строк
+   только основного файла: критерий компакции, не искажённый архивом.
+   Читает через write-queue — снимок после всех поставленных записей.
+   Невалидные записи отбрасываются."
+  []
+  (enqueue!
+   (fn []
+     (let [main (dp-file)
+           arch (dp-archive-file)]
+       (-> (js/Promise.all #js [(read-lines main) (read-lines arch)])
+           (.then (fn [[a b]]
+                    {:dps (->> (concat a b)
+                               contract/normalize-datapoints
+                               (sort-by :ts)
+                               vec)
+                     :main-count (count a)}))
+           (.catch (fn [e]
+                     (report-error! "read-datapoints" e)
+                     {:dps [] :main-count 0})))))))
 
 (defn append-datapoint!
   "Дописывает строку datapoint в JSONL через очередь записи
@@ -119,10 +144,10 @@
 
 (defn delete-datapoint!
   "Удаляет дата-поинт с данным id из JSONL (для undo). Идёт через write-queue —
-   сериализуется с тапами (виджет пишет напрямую, но атомарным append, гонки
-   чтение-перезапись тут нет — только между on-demand-операциями приложения).
-   Возвращает Promise<boolean> — удалён ли поинт. Удаление по id, а не по позиции:
-   последней строкой может быть нажатие с виджета, которое пользователь не делал."
+   сериализуется с тапами. Удаление по id, а не по позиции: последней строкой
+   может быть нажатие с виджета, которое пользователь не делал.
+   Возвращает Promise<boolean> — удалён ли поинт (true только после успешной
+   атомарной записи результата)."
   [id]
   (enqueue!
    (fn []
@@ -138,7 +163,7 @@
                           false
                           (do
                             (if (seq kept)
-                              (.write f (str (str/join "\n" kept) "\n"))
+                              (replace-atomic! f (str (str/join "\n" kept) "\n"))
                               (.delete f))
                             true))))))
          (js/Promise.resolve false))))))
@@ -156,55 +181,55 @@
 (defn compact-datapoints!
   "Компакция datapoints.jsonl (см. compact-threshold/retention-days).
    Разделение поинтов на свежие/старые — чистый app.compact/split.
+   Выполняется через write-queue (единый писатель), запись — атомарной заменой.
    Возвращает Promise, резолвится в число перенесённых в архив точек (0 = не было)."
   []
-  (let [f (dp-file)]
-    (if (.-exists f)
-      (-> (.text f)
-          (.then (fn [text]
-                   (let [lines (->> (str/split-lines (or text ""))
-                                    (filter seq)
-                                    (vec))
-                         n (count lines)]
-                     (if (<= n compact-threshold)
-                       0
-                       (let [dps (jsonl/parse-jsonl (str/join "\n" lines))
-                             cut (compact/cutoff-ms (js/Date.now) retention-days)
-                             {:keys [kept dropped]} (compact/split dps cut)
-                             dropped-count (count dropped)]
-                         (when (pos? dropped-count)
-                           (let [a (dp-archive-file)
-                                 append-arch (fn []
-                                               (-> (.text a)
-                                                   (.then (fn [arch]
-                                                            (.write a (str (or arch "")
-                                                                            (str/join "\n" (map #(js/JSON.stringify (clj->js %)) dropped))
-                                                                            "\n"))))
-                                                   (.catch (fn [e]
-                                                             (report-error! "compact archive" e)))))]
-(if (.-exists a)
-                               (append-arch)
-                               (-> (.create a)
-                                   (.then append-arch)
-                                   (.catch (fn [e]
-                                             (report-error! "compact archive create" e)))))))
-                         (if (seq kept)
-                           (.write f (str (str/join "\n" (map #(js/JSON.stringify (clj->js %)) kept)) "\n"))
-                           (.delete f))
-                         dropped-count)))))
-          (.catch (fn [e] (report-error! "compact" e) 0)))
-      0)))
+  (enqueue!
+   (fn []
+     (let [f (dp-file)]
+       (if (.-exists f)
+         (-> (.text f)
+             (.then (fn [text]
+                      (let [lines (->> (str/split-lines (or text ""))
+                                       (filter seq)
+                                       (vec))
+                            n (count lines)]
+                        (if (<= n compact-threshold)
+                          0
+                          (let [dps (jsonl/parse-jsonl (str/join "\n" lines))
+                                cut (compact/cutoff-ms (js/Date.now) retention-days)
+                                {:keys [kept dropped]} (compact/split dps cut)
+                                dropped-count (count dropped)]
+                            (when (pos? dropped-count)
+                              (let [a (dp-archive-file)
+                                    content (str (str/join "\n"
+                                                             (map #(js/JSON.stringify (clj->js %)) dropped))
+                                                  "\n")]
+                                (when-not (.-exists a)
+                                  (.create a))
+                                (.write a content #js {:append true})))
+                            (if (seq kept)
+                              (replace-atomic! f (str (str/join "\n"
+                                                                  (map #(js/JSON.stringify (clj->js %)) kept))
+                                                      "\n"))
+                              (.delete f))
+                            dropped-count)))))
+             (.catch (fn [e] (report-error! "compact" e) 0)))
+         0)))))
 
 (defn read-config
   "Возвращает Promise<config> (map {:buttons [..]}). Битый JSON -> пустой конфиг,
-   невалидные кнопки отбрасываются."
+   невалидные кнопки отбрасываются. Читает через write-queue — свежий снимок
+   после любых поставленных записей."
   []
-  (let [f (cfg-file)]
-    (if (.-exists f)
-      (-> (.text f)
-          (.then jsonl/parse-config)
-          (.then contract/normalize-config))
-      (js/Promise.resolve {:buttons []}))))
+  (enqueue!
+   (fn []
+     (let [f (cfg-file)]
+       (if (.-exists f)
+         (-> (.text f)
+             (.then jsonl/parse-config)
+             (.then contract/normalize-config))
+         (js/Promise.resolve {:buttons []}))))))
 
 (defn write-config!
   "Сохраняет конфиг кнопок через очередь записи."

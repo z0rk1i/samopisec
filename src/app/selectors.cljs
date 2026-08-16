@@ -1,7 +1,20 @@
 (ns app.selectors
   "Чистые селекторы данных графиков и дневных счётчиков — без re-frame,
    тестируются отдельно."
-  (:require [app.math :as math]))
+  (:require [app.math :as math]
+            [app.chart-geom :as geom]))
+
+(defn- decimate-series
+  "Децимация серий до ≤ max-polyline-points. rate/accel выровнены по индексу
+   (accel[i] соответствует rate[i]), поэтому прореживаются ОДИНАКОВЫМ индексным
+   паттерном — иначе кривые разъедутся по оси X."
+  [{:keys [cumulative rate accel] :as series}]
+  (let [idx (geom/decimate (vec (range (count rate))) geom/max-polyline-points)
+        pick (fn [xs] (mapv (fn [i] (nth xs i)) idx))]
+    (assoc series
+           :cumulative (geom/decimate cumulative geom/max-polyline-points)
+           :rate (pick rate)
+           :accel (pick accel))))
 
 (defn start-of-day
   "Метка начала текущего дня (локально), мс."
@@ -31,8 +44,9 @@
         ts (mapv :ts dps)]
     (if (empty? ts)
       {:cumulative [] :rate [] :accel [] :start start :end end}
-      (assoc (math/series ts start end (math/auto-bin-size (- end start)))
-             :start start :end end))))
+      (-> (math/series ts start end (math/auto-bin-size (- end start)))
+          decimate-series
+          (assoc :start start :end end)))))
 
 (defn today-counts
   "Счётчики нажатий за текущий календарный день: {:total n :by-button {id n}}."
