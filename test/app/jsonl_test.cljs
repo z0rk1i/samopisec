@@ -25,3 +25,34 @@
     (is (= {:buttons []} (jsonl/parse-config "not json{"))))
   (testing "empty string falls back to empty config"
     (is (= {:buttons []} (jsonl/parse-config "")))))
+
+(deftest serialize-config-test
+  (testing "round-trip: serialize-config -> parse-config сохраняет конфиг"
+    (let [cfg {:buttons [{:id "a" :label "Жми" :color "#1976d2"}]}]
+      (is (= cfg (jsonl/parse-config (jsonl/serialize-config cfg))))))
+  (testing "serializes to valid JSON text"
+    (is (= "{\"buttons\":[]}"
+           (jsonl/serialize-config {:buttons []})))))
+
+(deftest split-last-test
+  (testing "последний объект отделяется, остальные строки остаются как есть"
+    (let [{:keys [lines last]} (jsonl/split-last
+                                "{\"id\":\"a\",\"ts\":1}\n{\"id\":\"b\",\"ts\":2}\n")]
+      (is (= ["{\"id\":\"a\",\"ts\":1}"] lines))
+      (is (= {:id "b" :ts 2} last))))
+  (testing "одна строка -> lines пуст, last это она"
+    (let [{:keys [lines last]} (jsonl/split-last "{\"id\":\"a\"}\n")]
+      (is (= [] lines))
+      (is (= {:id "a"} last))))
+  (testing "пустой/битый текст -> last nil, lines пуст"
+    (let [r (jsonl/split-last "")]
+      (is (= [] (:lines r)))
+      (is (nil? (:last r)))))
+  (testing "битая последняя строка -> last nil, lines без неё"
+    (let [{:keys [lines last]} (jsonl/split-last "{\"id\":\"a\"}\nNOT JSON\n")]
+      (is (= ["{\"id\":\"a\"}"] lines))
+      (is (nil? last))))
+  (testing "пустые строки отбрасываются"
+    (let [{:keys [lines last]} (jsonl/split-last "\n\n{\"id\":\"a\"}\n\n{\"id\":\"b\"}\n")]
+      (is (= ["{\"id\":\"a\"}"] lines))
+      (is (= {:id "b"} last)))))

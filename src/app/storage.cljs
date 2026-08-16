@@ -4,6 +4,7 @@
    контейнер (виджет WidgetKit читает только оттуда); Android: document dir
    (= filesDir, оттуда же читает TapWidgetProvider)."
   (:require [clojure.string :as str]
+            [app.clock :as clock]
             [app.jsonl :as jsonl]
             [app.contract :as contract]
             [app.compact :as compact]
@@ -135,38 +136,27 @@
        (.write f (str (js/JSON.stringify (clj->js dp)) "\n")
                #js {:append true})))))
 
-(defn- line-id
-  "id дата-поинта из строки JSONL, либо nil (битая строка)."
-  [line]
-  (try
-    (:id (js->clj (js/JSON.parse line) :keywordize-keys true))
-    (catch :default _ nil)))
-
-(defn delete-datapoint!
-  "Удаляет дата-поинт с данным id из JSONL (для undo). Идёт через write-queue —
-   сериализуется с тапами. Удаление по id, а не по позиции: последней строкой
-   может быть нажатие с виджета, которое пользователь не делал.
-   Возвращает Promise<boolean> — удалён ли поинт (true только после успешной
-   атомарной записи результата)."
-  [id]
+(defn delete-last-datapoint!
+  "Удаляет ПОСЛЕДНИЙ дата-поинт из JSONL (для undo). Читает хвост файла через
+   write-queue — это истинно последний поинт, включая тапы с виджета, которых
+   нет в in-memory db (db не знает о них до перезагрузки). Удаление по последней
+   строке, а не по последнему поинту db — закрывает гонку undo после тапа с
+   виджета. Возвращает Promise<dp-or-nil> (nil — файл пуст или последняя строка
+   битая; в этом случае файл не трогается)."
+  []
   (enqueue!
    (fn []
      (let [f (dp-file)]
        (if (.-exists f)
          (-> (.text f)
              (.then (fn [text]
-                      (let [lines (->> (str/split-lines (or text ""))
-                                       (filter seq)
-                                       (vec))
-                            kept (vec (remove #(= id (line-id %)) lines))]
-                        (if (= (count lines) (count kept))
-                          false
-                          (do
-                            (if (seq kept)
-                              (replace-atomic! f (str (str/join "\n" kept) "\n"))
-                              (.delete f))
-                            true))))))
-         (js/Promise.resolve false))))))
+                      (let [{:keys [lines last]} (jsonl/split-last text)]
+                        (when last
+                          (if (seq lines)
+                            (replace-atomic! f (str (str/join "\n" lines) "\n"))
+                            (.delete f))
+                          last)))))
+         (js/Promise.resolve nil))))))
 
 (def ^:const compact-threshold
   "Порог числа строк datapoints.jsonl: при превышении запускается компакция —
@@ -197,7 +187,7 @@
                         (if (<= n compact-threshold)
                           0
                           (let [dps (jsonl/parse-jsonl (str/join "\n" lines))
-                                cut (compact/cutoff-ms (js/Date.now) retention-days)
+                                cut (compact/cutoff-ms (clock/now-ms) retention-days)
                                 {:keys [kept dropped]} (compact/split dps cut)
                                 dropped-count (count dropped)]
                             (when (pos? dropped-count)
@@ -232,14 +222,13 @@
          (js/Promise.resolve {:buttons []}))))))
 
 (defn write-config!
-  "Сохраняет конфиг кнопок через очередь записи."
+  "Сохраняет конфиг кнопок через очередь записи. Атомарная замена (tmp +
+   moveSync): краш в середине in-place записи не оставит битый config.json —
+   единственную durable-копию кнопок, которую читают и приложение, и виджеты."
   [cfg]
   (enqueue!
    (fn []
-     (let [f (cfg-file)]
-       (when-not (.-exists f)
-         (.create f))
-       (.write f (js/JSON.stringify (clj->js cfg)))))))
+     (replace-atomic! (cfg-file) (jsonl/serialize-config cfg)))))
 
 (defn new-id
   []
