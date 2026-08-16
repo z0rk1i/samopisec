@@ -7,7 +7,10 @@ import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import android.util.TypedValue
 import android.widget.RemoteViews
@@ -28,6 +31,18 @@ class TapWidgetProvider : AppWidgetProvider() {
 
     fun datapointsFile(context: Context): File =
       File(context.filesDir, "datapoints.jsonl")
+
+    fun vibrate(context: Context) {
+      val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        ?: return
+      if (!vibrator.hasVibrator()) return
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        vibrator.vibrate(VibrationEffect.createOneShot(40, 200))
+      } else {
+        @Suppress("DEPRECATION")
+        vibrator.vibrate(40)
+      }
+    }
   }
 
   override fun onUpdate(context: Context, manager: AppWidgetManager, widgetIds: IntArray) {
@@ -52,6 +67,7 @@ class TapWidgetProvider : AppWidgetProvider() {
     if (intent.action != ACTION_TAP) return
     val buttonId = intent.getStringExtra(EXTRA_BUTTON_ID) ?: return
     Log.d(TAG, "TAP for button=$buttonId")
+    vibrate(context)
     appendDatapoint(context, buttonId)
   }
 
