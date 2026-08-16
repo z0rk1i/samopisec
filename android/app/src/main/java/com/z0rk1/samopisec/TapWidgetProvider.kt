@@ -9,6 +9,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
@@ -36,7 +37,15 @@ class TapWidgetProvider : AppWidgetProvider() {
       val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         ?: return
       if (!vibrator.hasVibrator()) return
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      // USAGE_HARDWARE_FEEDBACK входит в allowlist фоновых процессов
+      // (VibrationSettings.BACKGROUND_PROCESS_USAGE_ALLOWLIST): тап по виджету будит
+      // приложение в фоне, иначе VibratorManagerService молча игнорирует вибрацию
+      // (Status.IGNORED_BACKGROUND, "Ignoring incoming vibration ... is background").
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        vibrator.vibrate(
+          VibrationEffect.createOneShot(40, 200),
+          VibrationAttributes.createForUsage(VibrationAttributes.USAGE_HARDWARE_FEEDBACK))
+      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         vibrator.vibrate(VibrationEffect.createOneShot(40, 200))
       } else {
         @Suppress("DEPRECATION")
