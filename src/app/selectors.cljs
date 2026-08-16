@@ -1,7 +1,8 @@
 (ns app.selectors
   "Чистые селекторы данных графиков и дневных счётчиков — без re-frame,
    тестируются отдельно."
-  (:require [app.math :as math]
+  (:require [app.clock :as clock]
+            [app.math :as math]
             [app.chart-geom :as geom]))
 
 (defn- decimate-series
@@ -17,11 +18,9 @@
            :accel (pick accel))))
 
 (defn start-of-day
-  "Метка начала текущего дня (локально), мс."
+  "Метка начала текущего дня (локально), мс. Пара к clock/start-of-day."
   [now-ms]
-  (let [d (js/Date. now-ms)]
-    (.setHours d 0 0 0 0)
-    (.getTime d)))
+  (clock/start-of-day now-ms))
 
 (defn range-window
   "Окно [start end] для диапазона range-k, относительно t0 (мс)."
@@ -31,6 +30,15 @@
     :week  [(- t0 (* 7 math/day-ms)) t0]
     :month [(- t0 (* 30 math/day-ms)) t0]
     :all   [0 t0]))
+
+(defn chart-after-button-remove
+  "Chart после удаления кнопки removed-id: если график смотрел на неё, фильтр
+   сбрасывается на :all (иначе серии были бы пустыми без причины), иначе chart
+   без изменений. Чистая функция — используется :config/remove и тестами."
+  [chart removed-id]
+  (if (= removed-id (:button-id chart))
+    (assoc chart :button-id :all)
+    chart))
 
 (defn series
   "Серии для выбора {:range k :button-id id} из datapoints.
@@ -63,12 +71,10 @@
    :by-button (frequencies (keep :button-id datapoints))})
 
 (defn- day-start-ms
-  "Начало календарного дня с отступом days от now-ms (0 = сегодня)."
+  "Начало календарного дня с отступом days от now-ms (0 = сегодня).
+   Пара к clock/day-start-ms."
   [now-ms days]
-  (let [d (js/Date. now-ms)]
-    (.setHours d 0 0 0 0)
-    (.setDate d (- (.getDate d) days))
-    (.getTime d)))
+  (clock/day-start-ms now-ms days))
 
 (defn- taps-on-day?
   "Есть ли хоть одно нажатие в календарный день days назад от now-ms."

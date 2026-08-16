@@ -17,6 +17,17 @@
     (is (= [(- t0 M) t0] (s/range-window :month t0)))
     (is (= [0 t0] (s/range-window :all t0)))))
 
+(deftest chart-after-button-remove-test
+  (testing "график смотрел на удаляемую кнопку -> фильтр сбрасывается на :all"
+    (is (= {:range :day :button-id :all}
+           (s/chart-after-button-remove {:range :day :button-id "x"} "x"))))
+  (testing "график смотрит на другую кнопку -> без изменений"
+    (let [chart {:range :day :button-id "y"}]
+      (is (= chart (s/chart-after-button-remove chart "x")))))
+  (testing "фильтр :all -> без изменений"
+    (let [chart {:range :day :button-id :all}]
+      (is (= chart (s/chart-after-button-remove chart "x"))))))
+
 (deftest start-of-day-test
   (testing "mid-afternoon maps to local midnight"
     (let [sd (js/Date. (s/start-of-day (.getTime (js/Date. 2026 7 14 15 30 45 123))))]
