@@ -3,6 +3,7 @@
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
             [react-native :as rn]
+            [app.clock :as clock]
             [app.storage :as storage]
             [app.contract :as contract]
             [app.theme :as theme]
@@ -166,8 +167,8 @@
         export! (fn []
                   (-> (js/Promise.all #js [(storage/read-config) (storage/read-datapoints)])
                       (.then (fn [res]
-                               (let [data (clj->js {:export-version 1
-                                                    :exported-at (js/Date.now)
+(let [data (clj->js {:export-version 1
+                                                     :exported-at (clock/now-ms)
                                                     :config (aget res 0)
                                                     :datapoints (:dps (aget res 1))})]
                                  (.share (.-Share rn) #js {:message (js/JSON.stringify data)}))))
