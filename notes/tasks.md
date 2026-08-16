@@ -128,6 +128,11 @@
 
 ### P5 — Инженерия
 - [x] native-тесты контракта: Kotlin JUnit 6/6, Swift 9/9, `scripts/native-tests.sh`
+- [x] хардкод строк графиков (13 шт) в i18n (B5 прошлого аудита)
+- [x] рефакторинг storage: единый писатель, атомарная замена, компакция по main-count,
+      фикс краша .create→.then, возвращён обработчик :config/loaded (ADR-0012)
+- [ ] на реальном устройстве проверить undo после тапа с виджета и экран статистики
+      с невалидным цветом
 - [x] валидация config.json в нативе: Kotlin/Swift пропускают кнопки без id/label
       (битая кнопка больше не роняет весь виджет в empty)
 - [x] CI: `.github/workflows/ci.yml` — CLJS lint+тесты, Swift и Kotlin unit-тесты
