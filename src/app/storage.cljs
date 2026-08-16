@@ -90,16 +90,20 @@
   "Атомарно заменяет содержимое f на content: пишет во временный файл в той же
    директории и переименовывает поверх (moveSync overwrite). Читатели никогда не
    видят частично записанный файл. Окно для гонки с виджетом (он дописывает в
-   конец напрямую) остаётся, но файл не портится — см. ADR."
+   конец напрямую) остаётся, но файл не портится — см. ADR.
+
+   ВНИМАНИЕ: после успешного moveSync НЕЛЬЗЯ удалять tmp — native File при move
+   меняет свой uri на файл-назначение, поэтому `(.delete tmp)` (или проверка
+   `(.-exists tmp)`) удалит УЖЕ ПЕРЕМЕЩЁННЫЙ файл (config.json/datapoints.jsonl),
+   а не временный. Сбойный moveSync оставляет tmp — его подберёт следующий
+   вызов через блок `(when (.-exists tmp) (.delete tmp))` в начале."
   [^fs/File f ^string content]
   (let [tmp (make-file (str (.-name f) ".tmp"))]
     (when (.-exists tmp)
       (.delete tmp))
     (.create tmp)
     (.write tmp content)
-    (.moveSync tmp f #js {:overwrite true})
-    (when (.-exists tmp)
-      (.delete tmp))))
+    (.moveSync tmp f #js {:overwrite true})))
 
 (defn read-datapoints
   "Возвращает Promise<{:dps [datapoint] :main-count n}>.
