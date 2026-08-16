@@ -22,7 +22,6 @@ class TapWidgetProvider : AppWidgetProvider() {
     const val ACTION_TAP = "com.z0rk1.samopisec.action.TAP"
     const val EXTRA_BUTTON_ID = "button_id"
     const val EXTRA_WIDGET_ID = "widget_id"
-    const val MAX_BUTTONS = 6
 
     fun configFile(context: Context): File =
       File(context.filesDir, "config.json")
@@ -76,7 +75,7 @@ class TapWidgetProvider : AppWidgetProvider() {
       R.id.widget_slot_1, R.id.widget_slot_2, R.id.widget_slot_3,
       R.id.widget_slot_4, R.id.widget_slot_5, R.id.widget_slot_6
     )
-    buttons.take(MAX_BUTTONS).forEachIndexed { i, button ->
+    buttons.take(WidgetConfig.MAX_BUTTONS).forEachIndexed { i, button ->
       root.addView(slots[i], buttonView(context, widgetId, button, i, labelSize))
     }
     return root

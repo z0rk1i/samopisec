@@ -51,4 +51,14 @@ class WidgetConfigTest {
   fun `missing buttons key returns empty`() {
     assertTrue(WidgetConfig.parseButtons("{}").isEmpty())
   }
+
+  @Test
+  fun `more than MAX_BUTTONS buttons are capped`() {
+    val buttons = (1..10).joinToString(",") { """{"id":"b$it","label":"L$it"}""" }
+    val json = """{"buttons":[$buttons]}"""
+    val parsed = WidgetConfig.parseButtons(json)
+    assertEquals(WidgetConfig.MAX_BUTTONS, parsed.size)
+    assertEquals("b1", parsed[0].optString("id"))
+    assertEquals("b${WidgetConfig.MAX_BUTTONS}", parsed.last().optString("id"))
+  }
 }

@@ -4,11 +4,13 @@ import org.json.JSONObject
 
 /** Чистый парсинг конфига кнопок виджета (без Android-зависимостей) — покрыт unit-тестами. */
 object WidgetConfig {
+  const val MAX_BUTTONS = 6
+
   fun parseButtons(json: String): List<JSONObject> {
     return try {
       val arr = JSONObject(json).optJSONArray("buttons")
       if (arr == null) emptyList()
-      else (0 until arr.length()).mapNotNull { i ->
+      else (0 until minOf(arr.length(), MAX_BUTTONS)).mapNotNull { i ->
         val b = try {
           arr.getJSONObject(i)
         } catch (e: Exception) {
