@@ -5,12 +5,11 @@
             [re-frame.core :as rf]
             [react-native :as rn]
             [app.chart-geom :as geom]
+            [app.timeline :as timeline]
             [app.theme :as theme]
             [app.i18n :refer [t tf]]
             ["react-native-svg" :as svg]))
 
-(defonce pad 20.0)
-(defonce H 150.0)
 (defonce card-radius 12.0)
 
 (def ranges [{:k :day :label (t :charts/range-day)}
@@ -18,11 +17,14 @@
              {:k :month :label (t :charts/range-month)}
              {:k :all :label (t :charts/range-all)}])
 
-(defn- fmt-time
-  "ЧЧ:ММ по метке времени (мс)."
-  [t]
+(defn- fmt-axis
+  "Подпись оси X: ЧЧ:ММ для :day, дд.мм для остальных диапазонов (у :month/:all
+   начальная метка — это дата, а не время дня)."
+  [t range]
   (when t
-    (.toLocaleTimeString (js/Date. t) #js {:hour "2-digit" :minute "2-digit"})))
+    (if (= range :day)
+      (.toLocaleTimeString (js/Date. t) #js {:hour "2-digit" :minute "2-digit"})
+      (.toLocaleDateString (js/Date. t) #js {:day "2-digit" :month "2-digit"}))))
 
 (defn- fmt-count
   "Компактное число: 12.5 -> 12, 1234 -> 1.2k."
@@ -42,11 +44,14 @@
 
 (defui chart-card
   "Карточка графика: сетка, подписи осей, полилиния и опциональная заливка.
-   props: {:title :points {:x :y в канвас-координатах} :color :fill? :start :end}"
-  [{:keys [title points color fill? start end]}]
+   props: {:title :points {:x :y в канвас-координатах} :color :fill? :start :end
+   :range (для формата подписей оси X)}"
+  [{:keys [title points color fill? start end range]}]
   (let [t (theme/use-theme)
         {:keys [width]} (rn/useWindowDimensions)
         W (max 200.0 (- width 32.0))
+        pad geom/pad
+        H geom/chart-h
         n (geom/norm-points points H pad)
         pts (:pts n)
         maxy (:maxy n)
@@ -85,60 +90,54 @@
           ;; подпись минимума
           ($ svg/Text {:x 4 :y (- H 4) :fill (:chart-label t) :font-size 10}
              (fmt-count miny))
-          ;; подписи времени по X
+          ;; подписи по X
           (when (and start end)
             ($ svg/Text {:x pad :y (- H 4) :fill (:chart-time t) :font-size 10}
-               (fmt-time start))
+               (fmt-axis start range))
             ($ svg/Text {:x (- W pad) :y (- H 4) :fill (:chart-time t) :font-size 10
                          :text-anchor "end"}
-               (fmt-time end)))))))
+               (fmt-axis end range)))))))
 
 (defui cumulative-panel
-  "Кумулятивная кривая: [[t n] ...]. Y передаётся в сыром виде (количество),
-   нормализацию делает chart-card."
-  [{:keys [cum start end W]}]
+  "Кумулятивная кривая. Серия сырая, конвертацию в точки канваса и проверку
+   пустоты делает timeline/points + chart-card."
+  [{:keys [series range W]}]
   (let [t (theme/use-theme)
-        pts (map (fn [[t n]]
-                   {:x (geom/scale-x t start end W pad)
-                    :y n})
-                 cum)]
+        {:keys [start end]} series
+        pts (timeline/points {:series series :k :cumulative :start start :end end :W W})]
     (if (empty? pts)
       ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
          (t :charts/cumulative-empty))
       ($ chart-card {:title (t :charts/cumulative-title) :points pts
                      :color (:accent t) :fill? true
-                     :start start :end end}))))
+                     :start start :end end :range range}))))
 
 (defui rate-panel
-  "Скорость нажатий (1-я производная): [{:t :rate} ...]."
-  [{:keys [rates start end W]}]
+  "Скорость нажатий (1-я производная)."
+  [{:keys [series range W]}]
   (let [t (theme/use-theme)
-        pts (map (fn [{:keys [t rate]}]
-                   {:x (geom/scale-x t start end W pad)
-                    :y rate})
-                 rates)]
+        {:keys [start end]} series
+        pts (timeline/points {:series series :k :rate :start start :end end :W W})]
     (if (empty? pts)
       ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
          (t :charts/rate-empty))
       ($ chart-card {:title (t :charts/rate-title) :points pts
                      :color (:success t)
-                     :start start :end end}))))
+                     :start start :end end :range range}))))
 
 (defui accel-panel
-  "Ускорение (2-я производная): [число...], равномерно по бин-time."
-  [{:keys [accel rates start end W]}]
+  "Ускорение (2-я производная). X из rate[i].t — rate и accel выровнены по
+   индексу, поэтому отдельных координат не нужно."
+  [{:keys [series range W]}]
   (let [t (theme/use-theme)
-        n (count accel)
-        xs (if (seq rates)
-             (map (fn [i] (geom/scale-x (get-in rates [i :t]) start end W pad)) (range n))
-             (map (fn [i] (+ pad (* (/ (inc i) (max 1 n)) (- W (* 2 pad))))) (range n)))
-        pts (map (fn [i x] {:x x :y (nth accel i)}) (range n) xs)]
+        {:keys [start end]} series
+        pts (timeline/points {:series series :k :accel :start start :end end :W W})]
     (if (empty? pts)
       ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
          (t :charts/accel-empty))
       ($ chart-card {:title (t :charts/accel-title) :points pts
                      :color (:purple t)
-                     :start start :end end}))))
+                     :start start :end end :range range}))))
 
 (defui range-chips []
   (let [t (theme/use-theme)
@@ -206,12 +205,8 @@
        ($ button-chips)
        ($ toggles)
        ($ rn/ScrollView {:style {:flex 1}}
-          ($ cumulative-panel {:cum (:cumulative series)
-                               :start (:start series) :end (:end series) :W W})
+          ($ cumulative-panel {:series series :range (:range chart) :W W})
           (when (:show-rate chart)
-            ($ rate-panel {:rates (:rate series)
-                           :start (:start series) :end (:end series) :W W}))
+            ($ rate-panel {:series series :range (:range chart) :W W}))
           (when (:show-accel chart)
-            ($ accel-panel {:accel (:accel series)
-                            :rates (:rate series)
-                            :start (:start series) :end (:end series) :W W}))))))
+            ($ accel-panel {:series series :range (:range chart) :W W}))))))
