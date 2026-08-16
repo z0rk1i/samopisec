@@ -355,3 +355,95 @@ capability. Путь: настроить бесплатный Apple personal tea
 крайне низкая (тап человека + редкая операция), файл при этом не портится.
 Полное устранение требует общего lock-файла между процессами — избыточно для
 однопользовательского приложения.
+
+## ADR-0013 — Фиксы по итогам аудита: хвостовой бин, атомарный config, устаревший фильтр графика
+**Дата:** 2026-08-16
+**Статус:** accepted
+
+### Контекст
+Аудит кодовой базы (CLJS + нативные виджеты) нашёл три бага:
+1. `math/range-bins` использовал `quot` — округление вниз. Для дневного окна
+   [00:00, сейчас] последний частичный бин (например, 14:00–14:37 при 14:37)
+   отбрасывался: тапы в хвосте диапазона пропадали из rate/accel, при этом
+   кумулятивная кривая (фильтр [start, end)) их видела — графики расходились.
+2. `write-config!` писал `config.json` in-place (`File.write` truncate+rewrite).
+   Краш/убийство процесса в середине записи оставлял битый файл → следующий
+   `parse-config` возвращал `{:buttons []}` → потеря всех кнопок. Это единственная
+   durable-копия конфига, её же читают оба виджета. Датапоинты — append-only
+   (безопасны), конфиг — нет.
+3. `:config/remove` не сбрасывал `:chart/button-id`, если удаляли кнопку, на
+   которую смотрит экран графиков — серии становились пустыми без причины.
+
+### Решение
+1. `range-bins` округляет число бинов вверх (`quot (+ range bin-size -1)
+   bin-size`): последний частичный бин сохраняется (хвост попадает внутрь
+   финального бина, чей `end` может выступать за `end-ms` — по докстрингу
+   «бины покрывают [start, end]»). Регресс-тест: 14:37 → 15 бинов, тап в хвосте
+   учитывается в rate. Без клипа `end` — не возникает нулевой длительности
+   бина и деления на ноль в `tap-rate`.
+2. `write-config!` переведён на `replace-atomic!` (tmp + `moveSync overwrite`) —
+   тот же паттерн, что у `delete-datapoint!`/компакции. Вынесен чистый
+   `jsonl/serialize-config` (пара к `parse-config`) + round-trip тест.
+3. Новый чистый предикат `selectors/chart-after-button-remove`: если график смотрел
+   на удаляемую кнопку, фильтр сбрасывается на `:all`; `:config/remove` его
+   вызывает. Фолбэк внутри `selectors/series` НЕ добавлялся: свежая кнопка с
+   нулём нажатий сегодня должна оставаться пустой серией, а не показывать все
+   данные — различать «кнопки нет» и «0 нажатий» селектор без списка кнопок
+   не может.
+
+### Результат
+`npm run lint` 0/0; CLJS-тесты 33/128 pass (добавлены range-bins-tail,
+serialize-config round-trip, chart-after-button-remove); Swift 9/9 pass.
+Правки не коммичены (по процессу — после ревью).
+
+## ADR-0014 — Рефакторинг по итогам аудита: undo по файлу, app.clock/app.timeline, split db.cljs, cap Kotlin
+**Дата:** 2026-08-16
+**Статус:** accepted
+
+### Контекст
+Продолжение аудита (ADR-0013). Открытые проблемы:
+- P5 (undo после тапа с виджета): `:data/undo` брал `(peek (:datapoints db))` —
+  последний поинт in-memory. Тап с виджета пишет в файл напрямую, не трогая db;
+  если он случился после последнего тапа в приложении и до завершения
+  foreground-reload, undo удалял не тот поинт.
+- Время (`js/Date.now`, `start-of-day`) размазано по db/selectors/ui — нет одного
+  шва для тестов с фиксированным временем.
+- Пайплайн серия→точки канваса (scale-x) дублировался в трёх панелях charts.cljs;
+  в `accel-panel` была мёртвая ветка (`(if (seq rates) ...)`: accel непуст ⟺ rate
+  непуст). `ranges` — `defonce` вместо `def`.
+- `db.cljs` смешивал data+config+chart события/подписки.
+- Kotlin `WidgetConfig.parseButtons` не ограничивал 6 кнопок (cap жил только в
+  `buildViews`), Swift ограничивал — асимметрия контракта.
+- `widgetCategory="home_screen"` только в манифесте — вопрос, не мёртвая ли
+  KEYGUARD-ветка в `buildViews`.
+
+### Решение
+1. **Undo по файлу.** Новый `storage/delete-last-datapoint!` (через write-queue):
+   читает хвост `datapoints.jsonl`, берёт ИСТИННО последнюю строку, удаляет её
+   атомарно, возвращает поинт. `:data/undo` теперь вызывает fx `:storage/undo`,
+   который диспатчит `:data/undone` с реальным id. Чистый хелпер
+   `jsonl/split-last` покрыт тестом. Удалён мёртвый `:storage/delete-datapoint` fx
+   и `storage/delete-datapoint!`/`line-id` (были только для undo по id). Закрыт
+   P5 (кроме остаточного риска: виджет-тап в момент между чтением и записью —
+   уже зафиксирован в ADR-0012).
+2. **`app.clock`** — единый источник: `now-ms` (подменяемый через `set-now!`),
+   `start-of-day`, `day-start-ms`. `js/Date.now` вычищен из db/selectors/ui/
+   storage; `selectors/start-of-day`/`day-start-ms` — тонкие алиасы (тесты не
+   ломаются).
+3. **`app.timeline`** — один `points` (серия→точки канваса {x y}) для трёх
+   панелей; `pad`/`H` перенесены в `chart-geom`. Панели в charts.cljs стали
+   однострочниками, мёртвая ветка убрана, `ranges` — `def`.
+4. **Split `db.cljs`** → `app.db` (default-db, init, :storage/load, экраны,
+   ошибки, базовые/стат-подписки) + `app.events.data` + `app.events.config` +
+   `app.events.chart`. `core.cljs` их подключает.
+5. **Kotlin parity**: `WidgetConfig.MAX_BUTTONS=6` + cap в `parseButtons`;
+   `TapWidgetProvider.MAX_BUTTONS` удалён (единый источник). Тест cap на 10.
+6. **Lock screen Android 16 — НЕ баг.** По Google FAQ (2025-03): требования к
+   lock screen виджетам отсутствуют, «all widgets are compatible»; категория
+   `not_keyguard` (API 36) — только opt-out. KEYGUARD-ветка в `buildViews` —
+   документированный адаптивный механизм (OPTION_APPWIDGET_HOST_CATEGORY).
+   Изменений не требуется; остаётся проверка на реальном устройстве (в tasks).
+
+### Результат
+`npm run lint` 0/0; CLJS 38 тестов/161 утверждение pass; Kotlin :app 7/7
+(WidgetConfigTest); Swift 9/9. Правки не коммичены.

@@ -132,7 +132,7 @@
 - [x] рефакторинг storage: единый писатель, атомарная замена, компакция по main-count,
       фикс краша .create→.then, возвращён обработчик :config/loaded (ADR-0012)
 - [ ] на реальном устройстве проверить undo после тапа с виджета и экран статистики
-      с невалидным цветом
+      с невалидным цветом (код-часть undo закрыта: delete-last-datapoint!, ADR-0014)
 - [x] валидация config.json в нативе: Kotlin/Swift пропускают кнопки без id/label
       (битая кнопка больше не роняет весь виджет в empty)
 - [x] CI: `.github/workflows/ci.yml` — CLJS lint+тесты, Swift и Kotlin unit-тесты
