@@ -7,15 +7,15 @@
             [app.chart-geom :as geom]
             [app.timeline :as timeline]
             [app.theme :as theme]
-            [app.i18n :refer [t tf]]
+            [app.i18n :as i18n]
             ["react-native-svg" :as svg]))
 
 (defonce card-radius 12.0)
 
-(def ranges [{:k :day :label (t :charts/range-day)}
-             {:k :week :label (t :charts/range-week)}
-             {:k :month :label (t :charts/range-month)}
-             {:k :all :label (t :charts/range-all)}])
+(def ranges [{:k :day :label (i18n/t :charts/range-day)}
+             {:k :week :label (i18n/t :charts/range-week)}
+             {:k :month :label (i18n/t :charts/range-month)}
+             {:k :all :label (i18n/t :charts/range-all)}])
 
 (defn- fmt-axis
   "Подпись оси X: ЧЧ:ММ для :day, дд.мм для остальных диапазонов (у :month/:all
@@ -107,8 +107,8 @@
         pts (timeline/points {:series series :k :cumulative :start start :end end :W W})]
     (if (empty? pts)
       ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
-         (t :charts/cumulative-empty))
-      ($ chart-card {:title (t :charts/cumulative-title) :points pts
+         (i18n/t :charts/cumulative-empty))
+      ($ chart-card {:title (i18n/t :charts/cumulative-title) :points pts
                      :color (:accent t) :fill? true
                      :start start :end end :range range}))))
 
@@ -120,8 +120,8 @@
         pts (timeline/points {:series series :k :rate :start start :end end :W W})]
     (if (empty? pts)
       ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
-         (t :charts/rate-empty))
-      ($ chart-card {:title (t :charts/rate-title) :points pts
+         (i18n/t :charts/rate-empty))
+      ($ chart-card {:title (i18n/t :charts/rate-title) :points pts
                      :color (:success t)
                      :start start :end end :range range}))))
 
@@ -134,8 +134,8 @@
         pts (timeline/points {:series series :k :accel :start start :end end :W W})]
     (if (empty? pts)
       ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
-         (t :charts/accel-empty))
-      ($ chart-card {:title (t :charts/accel-title) :points pts
+         (i18n/t :charts/accel-empty))
+      ($ chart-card {:title (i18n/t :charts/accel-title) :points pts
                      :color (:purple t)
                      :start start :end end :range range}))))
 
@@ -147,7 +147,7 @@
        (for [{:keys [k label]} ranges]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! :range k)
-                          :accessibility-label (tf :charts/range-accessibility label)
+                          :accessibility-label (i18n/tf :charts/range-accessibility label)
                           :style {:padding-horizontal 12 :padding-vertical 6
                                   :border-radius 16 :margin-right 8
                                   :background-color (if (= k (:range chart)) (:accent t) (:accent-soft t))}}
@@ -161,16 +161,16 @@
         set-opt! #(rf/dispatch [:chart/set %1 %2])]
     ($ rn/View {:style {:flex-direction :row :flex-wrap :wrap :margin-bottom 8}}
 ($ rn/Pressable {:on-press #(set-opt! :button-id :all)
-                        :accessibility-label (t :charts/filter-all-accessibility)
+                        :accessibility-label (i18n/t :charts/filter-all-accessibility)
                         :style {:padding-horizontal 12 :padding-vertical 6
                                 :border-radius 16 :margin-right 8 :margin-bottom 4
                                 :background-color (if (= :all (:button-id chart)) (:accent t) (:accent-soft t))}}
            ($ rn/Text {:style {:color (if (= :all (:button-id chart)) (:text-on-accent t) (:text t))}}
-              (t :charts/filter-all)))
+              (i18n/t :charts/filter-all)))
        (for [b buttons]
          ($ rn/Pressable {:key (:id b)
                           :on-press #(set-opt! :button-id (:id b))
-                          :accessibility-label (tf :charts/filter-accessibility (:label b))
+                          :accessibility-label (i18n/tf :charts/filter-accessibility (:label b))
                           :style {:padding-horizontal 12 :padding-vertical 6
                                   :border-radius 16 :margin-right 8 :margin-bottom 4
                                   :background-color (if (= (:id b) (:button-id chart)) (:accent t) (:accent-soft t))}}
@@ -182,7 +182,7 @@
         chart (use-subscribe [:chart])
         set-opt! #(rf/dispatch [:chart/set %1 %2])]
     ($ rn/View {:style {:flex-direction :row :margin-bottom 12}}
-       (for [[k label] [[:show-rate (t :charts/show-rate)] [:show-accel (t :charts/show-accel)]]]
+       (for [[k label] [[:show-rate (i18n/t :charts/show-rate)] [:show-accel (i18n/t :charts/show-accel)]]]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! k (not (get chart k)))
                           :accessibility-label label
@@ -200,7 +200,7 @@
         chart (use-subscribe [:chart])]
     ($ rn/View {:style {:flex 1 :padding 16 :background-color (:bg t)}}
        ($ rn/Text {:style {:font-size 24 :font-weight "700" :color (:text t) :margin-bottom 12}}
-          (t :charts/title))
+          (i18n/t :charts/title))
        ($ range-chips)
        ($ button-chips)
        ($ toggles)
