@@ -1,5 +1,5 @@
 (ns app.math-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is testing]]
             [app.math :as m]))
 
 (def H m/hour-ms)
@@ -14,6 +14,18 @@
   (is (= [{:start 0 :end 100} {:start 100 :end 200}]
          (m/range-bins 0 200 100)))
   (is (= [{:start 0 :end 50}] (m/range-bins 0 10 50))))
+
+(deftest range-bins-tail-test
+  (testing "последний частичный бин (хвост диапазона) не теряется"
+    (let [end-ms (+ (* 14 H) (* 37 60000))
+          bins (m/range-bins 0 end-ms H)
+          {:keys [start end]} (peek bins)]
+      (is (= 15 (count bins)))
+      (is (and (<= start end-ms) (< end-ms end)))))
+  (testing "тапы в хвостовом бине учитываются в rate"
+    (let [end-ms (+ (* 14 H) (* 37 60000))
+          s (m/series [(- end-ms 60000)] 0 end-ms H)]
+      (is (= 1 (:count (peek (:rate s))))))))
 
 (deftest cumulative-counts-test
   (is (= [] (m/cumulative-counts [])))

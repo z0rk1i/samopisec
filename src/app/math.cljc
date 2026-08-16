@@ -13,9 +13,11 @@
     :else day-ms))
 
 (defn range-bins
-  "Границы бинов [start end) покрывающие [start-ms end-ms]."
+  "Границы бинов [start end) покрывающие [start-ms end-ms].
+   Количество бинов округляется вверх: последний частичный бин (хвост диапазона)
+   сохраняется, иначе данные последнего неполного интервала терялись бы из rate/accel."
   [start-ms end-ms bin-size-ms]
-  (let [n (max 1 (quot (- end-ms start-ms) bin-size-ms))]
+  (let [n (max 1 (quot (+ (- end-ms start-ms) bin-size-ms -1) bin-size-ms))]
     (mapv (fn [i] {:start (+ start-ms (* i bin-size-ms))
                    :end (+ start-ms (* (inc i) bin-size-ms))})
           (range n))))
