@@ -96,6 +96,9 @@ android {
         versionCode 1
         versionName "0.1.0"
 
+        // Только нужные локали в resources.arsc (appcompat тянет ~30) (ADR-0020)
+        resConfigs "en", "ru"
+
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
     signingConfigs {
