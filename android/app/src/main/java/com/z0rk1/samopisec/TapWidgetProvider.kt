@@ -14,6 +14,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
 import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
 import java.io.File
@@ -98,48 +99,55 @@ class TapWidgetProvider : AppWidgetProvider() {
       return empty
     }
 
-    val root = RemoteViews(context.packageName, R.layout.widget_layout)
-    val slots = intArrayOf(
-      R.id.widget_slot_1, R.id.widget_slot_2, R.id.widget_slot_3,
-      R.id.widget_slot_4, R.id.widget_slot_5, R.id.widget_slot_6
+    // Кнопки зашиты в layout статически (widget_button_root_1..6 / widget_label_1..6).
+    // НЕЛЬЗЯ строить виджет динамическим addView: лаунчер применяет апдейт с тем же
+    // layout id инкрементально к существующему дереву (reapply), addView накапливает
+    // детей и старые кнопки не удаляются — редактирование/удаление не отображались.
+    // Здесь только replace-операции (setText/setInt/visibility), которые reapply
+    // применяет корректно (ADR-0018).
+    //
+    // Новый layout id widget_layout_v2 (не widget_layout): старые сохранённые
+    // системой RemoteViews ссылаются на старую структуру, и первый апдейт с новым
+    // кодом меняет layout id → лаунчер принудительно re-inflate'ит виджет заново
+    // (смена layout = полная пересборка, рендерится всегда).
+    val root = RemoteViews(context.packageName, R.layout.widget_layout_v2)
+    val slotRoots = intArrayOf(
+      R.id.widget_button_root_1, R.id.widget_button_root_2, R.id.widget_button_root_3,
+      R.id.widget_button_root_4, R.id.widget_button_root_5, R.id.widget_button_root_6
     )
+    val slotLabels = intArrayOf(
+      R.id.widget_label_1, R.id.widget_label_2, R.id.widget_label_3,
+      R.id.widget_label_4, R.id.widget_label_5, R.id.widget_label_6
+    )
+
+    for (i in slotRoots.indices) root.setViewVisibility(slotRoots[i], View.GONE)
+
     buttons.take(WidgetConfig.MAX_BUTTONS).forEachIndexed { i, button ->
-      root.addView(slots[i], buttonView(context, widgetId, button, i, labelSize))
+      val id = button.optString("id", "")
+      val label = button.optString("label", "?")
+      val color = try {
+        Color.parseColor(button.optString("color", "#1976D2"))
+      } catch (e: IllegalArgumentException) {
+        Color.parseColor("#1976D2")
+      }
+      root.setViewVisibility(slotRoots[i], View.VISIBLE)
+      root.setTextViewText(slotLabels[i], label)
+      root.setTextViewTextSize(slotLabels[i], TypedValue.COMPLEX_UNIT_SP, labelSize)
+      root.setInt(slotRoots[i], "setBackgroundColor", color)
+      root.setContentDescription(slotRoots[i], label)
+
+      val tap = Intent(context, TapWidgetProvider::class.java).apply {
+        action = ACTION_TAP
+        putExtra(EXTRA_BUTTON_ID, id)
+        putExtra(EXTRA_WIDGET_ID, widgetId)
+      }
+      val pi = PendingIntent.getBroadcast(
+        context, i, tap,
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+      )
+      root.setOnClickPendingIntent(slotRoots[i], pi)
     }
     return root
-  }
-
-  private fun buttonView(
-    context: Context,
-    widgetId: Int,
-    button: JSONObject,
-    requestCode: Int,
-    labelSize: Float
-  ): RemoteViews {
-    val view = RemoteViews(context.packageName, R.layout.widget_button)
-    val id = button.optString("id", "")
-    val label = button.optString("label", "?")
-    val color = try {
-      Color.parseColor(button.optString("color", "#1976D2"))
-    } catch (e: IllegalArgumentException) {
-      Color.parseColor("#1976D2")
-    }
-  view.setTextViewText(R.id.widget_label, label)
-  view.setTextViewTextSize(R.id.widget_label, TypedValue.COMPLEX_UNIT_SP, labelSize)
-  view.setInt(R.id.widget_button_root, "setBackgroundColor", color)
-  view.setContentDescription(R.id.widget_button_root, label)
-
-    val tap = Intent(context, TapWidgetProvider::class.java).apply {
-      action = ACTION_TAP
-      putExtra(EXTRA_BUTTON_ID, id)
-      putExtra(EXTRA_WIDGET_ID, widgetId)
-    }
-    val pi = PendingIntent.getBroadcast(
-      context, requestCode, tap,
-      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-    )
-    view.setOnClickPendingIntent(R.id.widget_button_root, pi)
-    return view
   }
 
   private fun readConfig(context: Context): List<JSONObject> {
