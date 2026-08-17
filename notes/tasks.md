@@ -167,3 +167,10 @@
       состояние; восстановлен [Чай,Кофе] с перерисовкой виджета
 - [x] lint 0/0, CLJS 38/161 pass, swift typecheck чистый, ADR-0018
 - [ ] проверить на реальном устройстве
+
+## Сессия 2026-08-17 — Release APK 73 МБ → 23 МБ (ADR-0019)
+- [x] разбор: 61 МБ нативных .so × 4 ABI (нужен только arm64-v8a), 20 МБ dex (RN), 2,2 МБ JS
+- [x] gradle.properties: reactNativeArchitectures=arm64-v8a + android.enableMinifyInReleaseBuilds
+      + android.enableShrinkResourcesInReleaseBuilds (имена свойств с префиксом android.!)
+- [x] результат: 73 → 23 МБ (dex 19,5 → 6,9 МБ), сборка arm64-only
+- [x] проверка на эмуляторе: запуск, конфиг, виджет-рефреш (WidgetBridge/TapWidgetProvider живы после R8)

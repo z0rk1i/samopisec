@@ -646,3 +646,44 @@ updateAppWidget` полностью работает: logcat показывае�
 
 ### Открыто
 - Проверить на реальном устройстве (эмулятор подтвердил все три сценария).
+
+## ADR-0019 — Уменьшение размера release APK: 73 МБ → 23 МБ (arm64-only + R8)
+
+**Дата:** 2026-08-17
+**Статус:** принято, проверено на эмуляторе Android 16
+
+### Контекст
+Release APK весил 73 МБ. Разбор: 61 МБ — нативные .so (libreactnative,
+libhermesvm, libexpo-modules-core, libc++_shared, libappmodules,
+libreact_codegen_rnsvg) в 4 ABI (x86, x86_64, arm64-v8a, armeabi-v7a); ~20 МБ —
+classes.dex (RN-фреймворк); 2,2 МБ — JS-бандл; ~10 МБ — ресурсы. Телефону и
+эмулятору (AVD samopisec, abi.type=arm64-v8a) нужен только arm64-v8a —
+остальные ~45 МБ балласт.
+
+### Решение
+В `android/gradle.properties`:
+1. `reactNativeArchitectures=arm64-v8a` (было
+   `armeabi-v7a,arm64-v8a,x86,x86_64`) — в APK только arm64 .so;
+2. `android.enableMinifyInReleaseBuilds=true` + `android.enableShrinkResourcesInReleaseBuilds=true`
+   — R8 minify + сжатие ресурсов. ИМЕНА СВОЙСТВ ВАЖНЫ: build.gradle читает их
+   через `findProperty('android.enableMinifyInReleaseBuilds')` и
+   `findProperty('android.enableShrinkResourcesInReleaseBuilds')` — без
+   префикса `android.`/суффикса `InReleaseBuilds` свойство игнорируется
+   (первая попытка: dex не изменился, minify не запускался).
+
+### Результат
+| | до | после |
+|---|---|---|
+| APK | 73 МБ | **23 МБ** (−68%) |
+| .so | 61 МБ (4 ABI) | 16,1 МБ (arm64-only) |
+| dex | 19,5 МБ | 6,9 МБ (R8) |
+
+### Проверка (эмулятор Android 16, release APK с R8)
+- Установка + запуск: `ReactNativeJS: Running "main"`, storage init, без крашей.
+- Конфиг [Чай,Кофе] на месте, виджет перерисован через UI (no-op move ↑):
+  `WidgetBridge: refreshWidgets: onUpdate done for 1 ids` →
+  `TapWidgetProvider: onUpdate: id=3` — нативные модули не пострадали от R8.
+- Пиксельные сигнатуры кнопок те же, что до R8 (33637 px #1976D2 + 33173 px #43A047).
+
+### Открыто
+- R8 + новый RN-модуль в будущем: проверить виджет после добавления зависимостей.
