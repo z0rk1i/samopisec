@@ -54,16 +54,23 @@
 
 (rf/reg-fx
  :storage/save-config
- (fn [cfg]
-   (storage/write-config! cfg)))
+ ;; fx принимает {:cfg cfg :on-done f}: запись асинхронная (write-queue),
+ ;; on-done вызывается ПОСЛЕ того как config.json реально записан.
+ (fn [{:keys [cfg on-done]}]
+   (-> (storage/write-config! cfg)
+       (.then (fn [] (when on-done (on-done)))))))
 
 (rf/reg-event-fx
  :config/commit
  (fn [{:keys [db]} _]
    (if (:config/dirty db)
      {:db (assoc db :config/dirty false)
-      :storage/save-config (select-keys db [:buttons])
-      :widget/refresh nil}
+      :storage/save-config
+      {:cfg (select-keys db [:buttons])
+       ;; Обновление виджета НЕЛЬЗЯ делать синхронно в этом же событии:
+       ;; write-config! идёт через очередь записи, и виджет перечитал бы
+       ;; config.json ДО фактической записи (гонка → старые кнопки).
+       :on-done #(rf/dispatch [:widget/refresh])}}
      {:db db})))
 
 (rf/reg-fx
