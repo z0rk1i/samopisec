@@ -687,3 +687,44 @@ classes.dex (RN-фреймворк); 2,2 МБ — JS-бандл; ~10 МБ — р
 
 ### Открыто
 - R8 + новый RN-модуль в будущем: проверить виджет после добавления зависимостей.
+
+## ADR-0020 — Ещё −13 МБ: сжатые .so + сжатый JS-бандл + локали (23 → 10 МБ)
+
+**Дата:** 2026-08-17
+**Статус:** принято, проверено на эмуляторе Android 16
+
+### Контекст
+После ADR-0019 (arm64-only + R8) APK весил 23 МБ: 16,1 МБ — нативные .so
+(STORED, без сжатия — extractNativeLibs=false), 2,35 МБ — Hermes-бандл
+(STORED), 1,2 МБ — resources.arsc (appcompat тянет ~30 локалей).
+
+### Решение
+В `android/gradle.properties`:
+1. `expo.useLegacyPackaging=true` — .so сжимаются в APK (Deflate),
+   установка распаковывает их на диск (extractNativeLibs=true — штатный
+   режим всех Android до 6.0, работает на 16).
+2. `android.enableBundleCompression=true` — Hermes-бандл сжимается,
+   asset manager декомпрессит при чтении.
+
+В `android/app/build.gradle` (defaultConfig):
+3. `resConfigs "en", "ru"` — в resources.arsc только нужные локали.
+
+### Результат
+| компонент | до | после (сжатый) |
+|---|---|---|
+| APK всего | 23 МБ | **10 МБ** (−57%, всего −86% от 73 МБ) |
+| libreactnative.so | 6,66 | 2,22 МБ |
+| libhermesvm.so | 2,36 | 0,99 МБ |
+| JS-бандл | 2,35 | 0,93 МБ |
+| libc++_shared.so | 1,23 | 0,39 МБ |
+
+### Проверка (эмулятор Android 16, release APK со сжатыми .so)
+- Установка (extractNativeLibs-путь), запуск, storage init — без ошибок
+  UnsatisfiedLinkError/крашей.
+- Виджет-рефреш через UI: `TapWidgetProvider: onUpdate` +
+  `WidgetBridge: refreshWidgets: onUpdate done` — пиксельные сигнатуры кнопок
+  те же (33637 px #1976D2 + 33173 px #43A047).
+
+### Открыто
+- Компромисс: установленный размер вырастет (libs распакованы на диск ~16 МБ).
+  Для скачивания/распространения — выигрыш очевиден.

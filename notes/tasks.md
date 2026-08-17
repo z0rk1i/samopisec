@@ -174,3 +174,9 @@
       + android.enableShrinkResourcesInReleaseBuilds (имена свойств с префиксом android.!)
 - [x] результат: 73 → 23 МБ (dex 19,5 → 6,9 МБ), сборка arm64-only
 - [x] проверка на эмуляторе: запуск, конфиг, виджет-рефреш (WidgetBridge/TapWidgetProvider живы после R8)
+
+## Сессия 2026-08-17 — Ещё −13 МБ: сжатие .so/бандла + локали (ADR-0020)
+- [x] expo.useLegacyPackaging=true (Deflate .so, установка распаковывает),
+      android.enableBundleCompression=true (Hermes-бандл сжат), resConfigs en,ru
+- [x] результат: 23 → 10 МБ (libreactnative 6,66→2,22, бандл 2,35→0,93)
+- [x] проверка на эмуляторе: установка, запуск, виджет-рефреш — всё работает
