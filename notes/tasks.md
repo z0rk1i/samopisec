@@ -144,3 +144,13 @@
       `:widget/refresh` после резолва записи (покрывает add/update/remove/move)
 - [x] lint 0/0, CLJS 38/161 pass (JDK 26), ADR-0016
 - [ ] живая проверка на эмуляторе: правка кнопок → виджет перерисовывается
+
+## Сессия 2026-08-17 — Android-виджет не обновлялся: мёртвый диспатч fx-как-событие (ADR-0017)
+- [x] живая проверка на эмуляторе (ADR-0016) выявила ДЕЙСТВИТЕЛЬНУЮ причину: `rf/dispatch
+      [:widget/refresh]` терялся — `:widget/refresh` зарегистрирован как fx, а диспатчится
+      как событие; refresh виджета не срабатывал никогда (ни add/update/remove/move)
+- [x] фикс: `reg-event-fx :widget/refresh` → `{:widget/refresh nil}` (мост событие→fx)
+- [x] проверка на эмуляторе Android 16: delete → config.json записан → WidgetBridge
+      refreshWidgets ids=[3] → onUpdate → виджет перерисован (пустое состояние)
+- [x] lint 0/0, CLJS 38/161 pass, ADR-0017
+- [ ] проверить на реальном устройстве

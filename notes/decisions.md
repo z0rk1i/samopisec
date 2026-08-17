@@ -529,4 +529,64 @@ fx не тронут. При сбое записи `enqueue!` глотает о�
 
 ### Открыто
 - Живая проверка на эмуляторе/устройстве: правка кнопок → виджет перерисовывается
-  (в tasks).
+  (в tasks). ✅ выполнена — вскрыла настоящую причину, см. ADR-0017: диспатч
+  `:widget/refresh` (fx-как-событие) молча терялся; refresh не срабатывал вообще.
+
+## ADR-0017 — Android-виджет не обновлялся: `:widget/refresh` диспатчился как событие, а был зарегистрирован как fx
+**Дата:** 2026-08-17
+**Статус:** accepted
+
+### Контекст
+Живая проверка на эмуляторе Android 16 (AVD samopisec) показала: виджет **не
+обновляется** после добавления/редактирования/удаления кнопок — приходится
+удалять виджет с рабочего стола и добавлять заново (переустановка вызывает
+`onUpdate` лаунчером, и виджет перерисовывается).
+
+Диагностика на эмуляторе (инструментированный release-сборка + logcat):
+- `:config/commit` → fx `:storage/save-config` → `write-config!` — доходит,
+  файл `config.json` реально записывается (проверено чтением как root);
+- а вот `rf/dispatch [:widget/refresh]` — **молча теряется**: обработчика события
+  нет, логов refreshWidgets/onUpdate в logcat нет, виджет не перерисовывается.
+
+### Причина
+`:widget/refresh` зарегистрирован как **fx** (`rf/reg-fx`), а вызывается как
+**событие** (`rf/dispatch [:widget/refresh]`). В re-frame это разные реестры:
+`dispatch` ищет обработчик события (`reg-event-db/-fx/-ctx`) и при отсутствии
+роняет диспатч (no-op) без исключения. `reg-fx` описывает только ключи в
+**fx-картах**, возвращаемых event-fx обработчиками — сам по себе он не диспатчится.
+
+То есть refresh виджета **никогда не срабатывал** ни по одному пути правки кнопок
+(add/update/remove/move) — ADR-0016 закрыл только гонку «refresh до записи», но
+не мёртвый диспатч. Живая проверка из ADR-0016 (правка кнопок → перерисовка)
+не была выполнена до сих пор.
+
+### Решение
+Добавлен мост событие→fx (оба имени могут сосуществовать — реестры раздельные):
+
+```clojure
+(rf/reg-fx
+ :widget/refresh
+ (fn [_] (widget/refresh-widgets!)))
+
+(rf/reg-event-fx
+ :widget/refresh
+ (fn [_ _] {:widget/refresh nil}))
+```
+
+`rf/dispatch [:widget/refresh]` теперь находит обработчик события, тот возвращает
+fx-карту `{:widget/refresh nil}`, re-frame выполняет fx → `refresh-widgets!` →
+`NativeModules.WidgetBridge.refreshWidgets()` → `TapWidgetProvider.onUpdate` →
+`AppWidgetManager.updateAppWidget(id, newViews)`. Путь покрывает Android (WidgetBridge)
+и iOS (`ExtensionStorage.reloadWidget` — тот же `refresh-widgets!`).
+
+### Проверка (эмулятор Android 16, release APK)
+- `rf/dispatch [:widget/refresh]` → logcat: `WidgetBridge: refreshWidgets: ids=[3]`
+  → `TapWidgetProvider: onUpdate: widgetIds=[3]` → `updateAppWidget(id=3, new RemoteViews)`.
+- Удаление кнопки с подтверждением диалога → `config.json` записан
+  (`{"buttons":[]}`, проверено root-чтением) → виджет перерисован в пустое состояние
+  («Откройте приложение и добавьте кнопки», проверено uiautomator dump лаунчера).
+- `npm run lint` 0/0; CLJS: 66 файлов, 0 warnings; 38 тестов / 161 assertion, 0 failures.
+
+### Открыто
+- Проверить на реальном устройстве (эмулятор подтвердил).
+- Тапы по виджету с фоном-процессом (ADR-0009/0010) не затрагивались.
