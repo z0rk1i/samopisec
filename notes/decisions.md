@@ -491,3 +491,42 @@ tmp от сбойного moveSync) оставлена. Докстринг фу�
 
 ### Открыто
 - Проверка на реальном устройстве (Android/iOS) — в tasks.
+
+## ADR-0016 — Android-виджет не обновлялся после правки кнопок: гонка refresh vs запись config.json
+**Дата:** 2026-08-17
+**Статус:** accepted
+
+### Контекст
+После добавления/редактирования/удаления/перемещения кнопок виджет на домашнем
+экране оставался со старым содержимым, хотя весь пайплайн существовал:
+`:config/commit` → fx `:storage/save-config` + fx `:widget/refresh` → нативный
+`WidgetBridge.refreshWidgets()` → `TapWidgetProvider.onUpdate` → перечитывание
+`config.json` и пересборка RemoteViews.
+
+### Причина
+Гонка в `:config/commit`: `write-config!` пишет файл **асинхронно** через
+write-queue (`create tmp → write tmp → moveSync`), а `:widget/refresh` срабатывал
+**синхронно в том же событии** — раньше, чем запись завершилась. Виджет
+перечитывал `config.json` с диска до фактической записи и перерисовывался со
+старыми кнопками.
+
+### Решение
+`fx :storage/save-config` теперь принимает `{:cfg cfg :on-done f}` и вызывает
+`on-done` только после резолва промиса записи. `:config/commit` передаёт
+`:on-done #(rf/dispatch [:widget/refresh])` — refresh виджета (Android + iOS
+reload) выполняется строго после durable-записи `config.json`. Сигнатура fx
+изменена (единственный вызывающий — `:config/commit`), сам `:widget/refresh`
+fx не тронут. При сбое записи `enqueue!` глотает ошибку (report-error! +
+баннер `:storage/error`), `on-done` всё равно срабатывает — виджет перерисуется
+со старым, но валидным конфигом, пользователь видит ошибку сохранения.
+
+### Проверка
+- `npm run lint` 0/0 (clj-kondo, src+test).
+- CLJS: compile test (JDK 26, без него — известный фейл Java 8, см. env.sh) —
+  66 файлов, 0 warnings; 38 тестов / 161 assertion, 0 failures.
+- Нативный модуль `WidgetBridge` зарегистрирован (`MainApplication.kt:25`),
+  `refreshWidgets` перечитывает `config.json` из `filesDir` — контракт файла не менялся.
+
+### Открыто
+- Живая проверка на эмуляторе/устройстве: правка кнопок → виджет перерисовывается
+  (в tasks).

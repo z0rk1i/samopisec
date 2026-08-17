@@ -136,3 +136,11 @@
 - [x] валидация config.json в нативе: Kotlin/Swift пропускают кнопки без id/label
       (битая кнопка больше не роняет весь виджет в empty)
 - [x] CI: `.github/workflows/ci.yml` — CLJS lint+тесты, Swift и Kotlin unit-тесты
+## Сессия 2026-08-17 — Android-виджет обновлялся со старыми кнопками (ADR-0016)
+- [x] найдена гонка: `:widget/refresh` срабатывал синхронно в `:config/commit`, а
+      `write-config!` пишет асинхронно через write-queue → виджет перечитывал
+      `config.json` ДО записи и рисовал старые кнопки
+- [x] fx `:storage/save-config` → `{:cfg cfg :on-done f}`, `:on-done` вызывает
+      `:widget/refresh` после резолва записи (покрывает add/update/remove/move)
+- [x] lint 0/0, CLJS 38/161 pass (JDK 26), ADR-0016
+- [ ] живая проверка на эмуляторе: правка кнопок → виджет перерисовывается
