@@ -77,3 +77,9 @@
  :widget/refresh
  (fn [_]
    (widget/refresh-widgets!)))
+
+(rf/reg-event-fx
+ :widget/refresh
+ ;; Мост: событие -> fx. rf/dispatch требует обработчик СОБЫТИЯ; без него
+ ;; диспатч молча ронялся и виджет не обновлялся (ADR-0017).
+ (fn [_ _] {:widget/refresh nil}))

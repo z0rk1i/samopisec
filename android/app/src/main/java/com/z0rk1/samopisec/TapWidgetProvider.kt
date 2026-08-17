@@ -55,8 +55,11 @@ class TapWidgetProvider : AppWidgetProvider() {
   }
 
   override fun onUpdate(context: Context, manager: AppWidgetManager, widgetIds: IntArray) {
+    Log.d(TAG, "onUpdate: widgetIds=${widgetIds.toList()}")
     for (id in widgetIds) {
-      manager.updateAppWidget(id, buildViews(context, id))
+      val views = buildViews(context, id)
+      Log.d(TAG, "onUpdate: id=$id views=$views")
+      manager.updateAppWidget(id, views)
     }
   }
 
