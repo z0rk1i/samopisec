@@ -16,8 +16,10 @@ enum WidgetStore {
   }
 
   static func datapointsURL() -> URL? {
-    containerURL?.appendingPathComponent("datapoints.jsonl")
+    containerURL?.appendingPathComponent("datapoints.csv")
   }
+
+  static let csvHeader = "id,button_id,ts"
 
   struct ButtonInfo: Identifiable {
     let id: String
@@ -35,18 +37,26 @@ enum WidgetStore {
 
   static func appendDatapoint(buttonId: String) {
     guard let url = datapointsURL() else { return }
-    let dp: [String: Any] = [
-      "id": UUID().uuidString,
-      "button-id": buttonId,
-      "ts": Date().timeIntervalSince1970 * 1000
-    ]
-    let line = ((try? JSONSerialization.data(withJSONObject: dp)) ?? Data()) + Data("\n".utf8)
+    let fm = FileManager.default
+    if !fm.fileExists(atPath: url.path) {
+      try? (csvHeader + "\n").write(to: url, atomically: true, encoding: .utf8)
+    } else if let attrs = try? fm.attributesOfItem(atPath: url.path),
+              (attrs[.size] as? UInt64 ?? 1) == 0 {
+      try? (csvHeader + "\n").write(to: url, atomically: true, encoding: .utf8)
+    } else if let first = try? String(contentsOf: url, encoding: .utf8).components(separatedBy: "\n").first,
+              first != csvHeader {
+      if let old = try? String(contentsOf: url, encoding: .utf8) {
+        try? (csvHeader + "\n" + old).write(to: url, atomically: true, encoding: .utf8)
+      }
+    }
+    let ts = Int64(Date().timeIntervalSince1970 * 1000)
+    let line = "\(UUID().uuidString),\(buttonId),\(ts)\n"
     if let handle = try? FileHandle(forWritingTo: url) {
       defer { try? handle.close() }
       handle.seekToEndOfFile()
-      handle.write(line)
+      if let data = line.data(using: .utf8) { handle.write(data) }
     } else {
-      try? line.write(to: url, options: .atomic)
+      try? line.write(to: url, atomically: true, encoding: .utf8)
     }
   }
 }

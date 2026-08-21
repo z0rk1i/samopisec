@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Samopisec Grafana (offline)</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0b0c0e;color:#d8dee9;font-family:-apple-system,BlinkMacSystemFont,Inter,Roboto,sans-serif}
+  header{padding:12px 16px;background:#111217;border-bottom:1px solid #2a2a2e;display:flex;align-items:center;gap:12px}
+  header h1{margin:0;font-size:16px;font-weight:600;color:#fff}
+  header span{font-size:12px;color:#9ba0b0}
+  .grid{padding:12px;display:grid;gap:12px;grid-template-columns:1fr}
+  @media(min-width:700px){.grid{grid-template-columns:1fr 1fr}}
+  .panel{background:#1f1f23;border:1px solid #2a2a2e;border-radius:6px;padding:12px}
+  .panel h2{margin:0 0 8px 0;font-size:13px;font-weight:600;color:#c2c8d6;letter-spacing:.02em;text-transform:uppercase}
+  canvas{width:100%;height:180px;display:block}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{padding:6px 8px;border-bottom:1px solid #2a2a2e;text-align:left}
+  th{color:#8a90a3;font-weight:600}
+  .empty{padding:24px;text-align:center;color:#8a90a3;font-size:13px}
+  .pill{padding:2px 8px;border-radius:10px;background:#2a2a2e;color:#d8dee9;font-size:11px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#c2c8d6}
+  .legend-dot{width:10px;height:10px;border-radius:5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Samopisec</h1>
+  <span id="subtitle">offline • Grafana style • по кнопкам</span>
+  <span style="flex:1"></span>
+  <span class="pill" id="total">—</span>
+</header>
+<div class="grid">
+  <div class="panel" id="p-cumulative"><h2>Cumulative (per button)</h2><div id="legend-cumulative" class="legend"></div><canvas id="c-cumulative" width="600" height="220"></canvas><div id="e-cumulative" class="empty" style="display:none">нет данных</div></div>
+  <div class="panel" id="p-totals"><h2>Totals per button</h2><canvas id="c-totals" width="600" height="220"></canvas><div id="e-totals" class="empty" style="display:none">нет данных</div></div>
+  <div class="panel" id="p-hour"><h2>Per-hour heatmap (0–23)</h2><canvas id="c-hour" width="600" height="220"></canvas><div id="e-hour" class="empty" style="display:none">нет данных</div></div>
+  <div class="panel" id="p-raw"><h2>Raw CSV</h2><div style="max-height:220px;overflow:auto"><table id="t-raw"><thead><tr><th>id</th><th>button_id</th><th>ts</th><th>time</th></tr></thead><tbody></tbody></table></div><div id="e-raw" class="empty" style="display:none">нет данных</div></div>
+</div>
+<script>
+function parseCSV(text){
+  if(!text) return [];
+  const lines=text.split(/\r?\n/).filter(l=>l.trim()!=="");
+  if(!lines.length) return [];
+  const header=lines[0].trim();
+  const hasHeader=header==="id,button_id,ts";
+  const data=hasHeader?lines.slice(1):lines;
+  const out=[];
+  for(const l of data){
+    const p=l.split(",");
+    if(p.length!==3) continue;
+    const id=p[0], button_id=p[1], ts=parseInt(p[2],10);
+    if(!id||!button_id||isNaN(ts)||ts<=0) continue;
+    out.push({id,button_id,ts});
+  }
+  return out;
+}
+function fmtTime(ts){
+  try{return new Date(ts).toLocaleString()}catch(e){return String(ts)}
+}
+function drawCumulativePerButton(canvas, dps, buttons){
+  const ctx=canvas.getContext("2d");
+  const W=canvas.width, H=canvas.height, pad=32;
+  ctx.clearRect(0,0,W,H);
+  if(!dps.length || !buttons.length) return;
+  // global time span
+  const sortedAll=dps.slice().sort((a,b)=>a.ts-b.ts);
+  const t0=sortedAll[0].ts, t1=sortedAll[sortedAll.length-1].ts;
+  const span=Math.max(1,t1-t0);
+  // global max cumulative for Y
+  const perButtonCounts={};
+  buttons.forEach(b=>perButtonCounts[b.id]=0);
+  dps.forEach(d=>{ if(perButtonCounts.hasOwnProperty(d.button_id)) perButtonCounts[d.button_id]++; });
+  const maxCum=Math.max(1,...Object.values(perButtonCounts));
+  // grid
+  ctx.strokeStyle="#2a2a2e"; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){ const y=pad+i*(H-pad*2)/4; ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke(); }
+  // per-button lines
+  buttons.forEach(b=>{
+    const bDps=dps.filter(d=>d.button_id===b.id).sort((a,b)=>a.ts-b.ts);
+    if(!bDps.length) return;
+    ctx.strokeStyle=b.color||"#6da5ff"; ctx.lineWidth=2.2; ctx.lineJoin="round"; ctx.lineCap="round"; ctx.beginPath();
+    bDps.forEach((d,i)=>{
+      const x=pad + ((d.ts - t0)/span)*(W-pad*2);
+      const y=H-pad - ((i+1)/maxCum)*(H-pad*2);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  });
+  // labels
+  ctx.fillStyle="#8a90a3"; ctx.font="10px sans-serif";
+  ctx.fillText(String(maxCum), 6, 12);
+  ctx.fillText("0", 6, H-4);
+  ctx.fillText(new Date(t0).toLocaleDateString(), pad, H-6);
+  const eLabel=new Date(t1).toLocaleDateString();
+  const tw=ctx.measureText(eLabel).width;
+  ctx.fillText(eLabel, W-pad-tw, H-6);
+}
+function drawBar(canvas, labels, values, colors){
+  const ctx=canvas.getContext("2d");
+  const W=canvas.width, H=canvas.height, pad=32;
+  ctx.clearRect(0,0,W,H);
+  if(!labels.length) return;
+  const max=Math.max(1,...values);
+  const n=labels.length;
+  const gap=8;
+  const barW=(W-pad*2 - gap*(n-1))/n;
+  ctx.strokeStyle="#2a2a2e"; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){ const y=pad+i*(H-pad*2)/4; ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke(); }
+  labels.forEach((lab,i)=>{
+    const v=values[i];
+    const h=(v/max)*(H-pad*2);
+    const x=pad + i*(barW+gap);
+    const y=H-pad - h;
+    ctx.fillStyle=colors[i]||"#6da5ff";
+    ctx.fillRect(x,y,barW,h);
+    ctx.fillStyle="#c2c8d6"; ctx.font="10px sans-serif"; ctx.textAlign="center";
+    const tx=x+barW/2;
+    let txt=lab.length>8?lab.slice(0,8)+"…":lab;
+    ctx.fillText(txt, tx, H-pad+12);
+    ctx.fillStyle="#8a90a3";
+    ctx.fillText(String(v), tx, y-4);
+  });
+  ctx.textAlign="left";
+}
+function render(csvText, buttons){
+  const dps=parseCSV(csvText);
+  const btns=buttons && buttons.length ? buttons : [];
+  // header buttons map
+  const btnMap={};
+  btns.forEach(b=>btnMap[b.id]=b);
+  // fallback colors if no buttons
+  const fallbackColors=["#e53935","#1e88e5","#43a047","#fb8c00","#8e24aa","#fdd835"];
+  const effectiveButtons=btns.length ? btns : Object.keys(dps.reduce((a,d)=>{a[d.button_id]=1;return a},{})).map((id,i)=>({id,label:id,color:fallbackColors[i%fallbackColors.length]}));
+  document.getElementById("total").textContent=dps.length+" points • "+effectiveButtons.length+" кнопок";
+  // legend
+  const legend=document.getElementById("legend-cumulative");
+  legend.innerHTML="";
+  effectiveButtons.forEach(b=>{
+    const el=document.createElement("div");
+    el.className="legend-item";
+    el.innerHTML='<span class="legend-dot" style="background:'+b.color+'"></span>'+b.label;
+    legend.appendChild(el);
+  });
+  // raw
+  const tbody=document.querySelector("#t-raw tbody");
+  tbody.innerHTML="";
+  if(!dps.length){
+    document.getElementById("e-raw").style.display="block";
+  } else {
+    document.getElementById("e-raw").style.display="none";
+    dps.slice().sort((a,b)=>b.ts-a.ts).slice(0,100).forEach(d=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML="<td>"+d.id.slice(0,8)+"</td><td>"+d.button_id+"</td><td>"+d.ts+"</td><td>"+fmtTime(d.ts)+"</td>";
+      tbody.appendChild(tr);
+    });
+  }
+  // cumulative per button
+  if(!dps.length || !effectiveButtons.length){ document.getElementById("e-cumulative").style.display="block"; document.getElementById("c-cumulative").style.display="none"; }
+  else { document.getElementById("e-cumulative").style.display="none"; document.getElementById("c-cumulative").style.display="block"; drawCumulativePerButton(document.getElementById("c-cumulative"), dps, effectiveButtons); }
+  // totals per button with button colors
+  if(!dps.length){ document.getElementById("e-totals").style.display="block"; document.getElementById("c-totals").style.display="none"; }
+  else {
+    document.getElementById("e-totals").style.display="none"; document.getElementById("c-totals").style.display="block";
+    const freq={}; dps.forEach(d=>freq[d.button_id]=(freq[d.button_id]||0)+1);
+    const labels=effectiveButtons.map(b=>b.label), values=effectiveButtons.map(b=>freq[b.id]||0), colors=effectiveButtons.map(b=>b.color);
+    drawBar(document.getElementById("c-totals"), labels, values, colors);
+  }
+  // per-hour (still total)
+  if(!dps.length){ document.getElementById("e-hour").style.display="block"; document.getElementById("c-hour").style.display="none"; }
+  else {
+    document.getElementById("e-hour").style.display="none"; document.getElementById("c-hour").style.display="block";
+    const perHour=Array(24).fill(0);
+    dps.forEach(d=>{ const h=new Date(d.ts).getHours(); perHour[h]++; });
+    const labels=perHour.map((_,i)=>String(i)), values=perHour;
+    drawBar(document.getElementById("c-hour"), labels, values, perHour.map(_=>"#ff9830"));
+  }
+}
+function init(){
+  let csv=window.SAMOPISEC_CSV || "";
+  let buttons=window.SAMOPISEC_BUTTONS || [];
+  if(!csv && window.__SAMOPISEC_CSV) csv=window.__SAMOPISEC_CSV;
+  if(!buttons.length && window.__SAMOPISEC_BUTTONS) buttons=window.__SAMOPISEC_BUTTONS;
+  try{ if(typeof buttons==="string") buttons=JSON.parse(buttons); }catch(e){}
+  render(csv, buttons);
+  window.addEventListener("message", function(e){
+    try{
+      const data=typeof e.data==="string"?e.data: JSON.stringify(e.data);
+      if(data && data.indexOf("id,button_id,ts")!==-1) render(data, buttons);
+    }catch(err){}
+  });
+  document.addEventListener("message", function(e){
+    try{
+      const d=e.data;
+      if(d && typeof d==="string" && d.indexOf("id,button_id,ts")!==-1) render(d, buttons);
+    }catch(err){}
+  });
+}
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", init); else init();
+</script>
+</body>
+</html>

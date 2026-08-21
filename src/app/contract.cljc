@@ -1,7 +1,7 @@
 (ns app.contract
   "Единый контракт данных между приложением и нативными виджетами (Kotlin/Swift).
-   config.json:      {:buttons [{:id string :label string :color string}]}
-   datapoints.jsonl: строка {:id string :button-id string :ts number (мс)}"
+   config.json:     {:buttons [{:id string :label string :color string}]}
+   datapoints.csv:  header id,button_id,ts (ts = epoch ms int), строка на событие"
   (:require [clojure.string :as str]))
 
 (def max-buttons 6)

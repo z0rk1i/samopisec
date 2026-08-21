@@ -1,0 +1,11 @@
+apiVersion: 1
+datasources:
+  - name: CSV
+    type: marcusolsson-csv-datasource
+    uid: CSV
+    access: proxy
+    url: /tmp/samopisec.csv
+    isDefault: true
+    editable: true
+    jsonData:
+      storage: local

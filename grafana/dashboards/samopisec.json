@@ -1,0 +1,67 @@
+{
+  "uid": "samopisec",
+  "title": "Samopisec",
+  "tags": ["samopisec"],
+  "timezone": "browser",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-7d", "to": "now" },
+  "refresh": "5s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Raw CSV",
+      "type": "table",
+      "datasource": { "type": "marcusolsson-csv-datasource", "uid": "CSV" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "options": { "footer": { "show": true, "reducer": ["count"], "countRows": true } },
+      "targets": [{ "refId": "A", "datasource": { "type": "marcusolsson-csv-datasource", "uid": "CSV" } }]
+    },
+    {
+      "id": 2,
+      "title": "Cumulative (count over time)",
+      "type": "timeseries",
+      "datasource": { "type": "marcusolsson-csv-datasource", "uid": "CSV" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 8 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{ "refId": "A", "datasource": { "type": "marcusolsson-csv-datasource", "uid": "CSV" } }],
+      "transformations": [
+        { "id": "convertFieldType", "options": { "conversions": [{ "targetField": "ts", "destinationType": "time", "dateFormat": "x" }], "fields": {} } },
+        { "id": "groupBy", "options": { "fields": { "ts": { "aggregations": ["count"], "operation": "groupby" } } } }
+      ],
+      "description": "ts = epoch ms. Convert ts to time, then count per bucket. For per-button series add Partition by values on button_id."
+    },
+    {
+      "id": 3,
+      "title": "Totals per button",
+      "type": "barchart",
+      "datasource": { "type": "marcusolsson-csv-datasource", "uid": "CSV" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "options": { "orientation": "horizontal", "xField": "button_id" },
+      "targets": [{ "refId": "A", "datasource": { "type": "marcusolsson-csv-datasource", "uid": "CSV" } }],
+      "transformations": [
+        { "id": "groupBy", "options": { "fields": { "button_id": { "aggregations": [], "operation": "groupby" }, "id": { "aggregations": ["count"], "operation": "aggregate" } } } }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Per-hour heatmap (0-23)",
+      "type": "barchart",
+      "datasource": { "type": "marcusolsson-csv-datasource", "uid": "CSV" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "options": { "orientation": "vertical" },
+      "targets": [{ "refId": "A", "datasource": { "type": "marcusolsson-csv-datasource", "uid": "CSV" } }],
+      "transformations": [
+        { "id": "convertFieldType", "options": { "conversions": [{ "targetField": "ts", "destinationType": "time", "dateFormat": "x" }], "fields": {} } },
+        { "id": "calculateField", "options": { "alias": "hour", "binary": { "left": "ts", "operator": "/", "reducer": "sum", "right": "3600000" }, "mode": "reduceRow", "reduce": { "include": ["ts"], "reducer": "sum" } } }
+      ],
+      "description": "Approximate: hour = floor(ts / 3600000) % 24. For exact local hour use Infinity datasource with UQL or pre-aggregate in script."
+    }
+  ]
+}

@@ -12,7 +12,7 @@
             [app.theme :as theme]
             [app.storage :as storage]
             [app.ui.config :as config-screen]
-            [app.ui.charts :as charts-screen]
+            [app.ui.grafana :as grafana-screen]
             [app.ui.stats :as stats-screen]
             [app.i18n :as i18n]))
 
@@ -54,7 +54,7 @@
         insets (safe-area/useSafeAreaInsets)]
     ($ rn/View {:style {:flex 1 :padding-top (.-top insets)}}
        (cond
-         (= screen :charts) ($ charts-screen/screen)
+         (= screen :charts) ($ grafana-screen/screen)
          (= screen :stats) ($ stats-screen/screen)
          :else ($ config-screen/screen))
        ($ error-banner)

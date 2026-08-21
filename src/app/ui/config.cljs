@@ -4,6 +4,7 @@
             [re-frame.core :as rf]
             [react-native :as rn]
             [app.clock :as clock]
+            [app.csv :as csv]
             [app.storage :as storage]
             [app.contract :as contract]
             [app.theme :as theme]
@@ -12,6 +13,12 @@
 (defonce colors
   ["#e53935" "#fb8c00" "#fdd835" "#43a047"
    "#1e88e5" "#8e24aa" "#5e35b1" "#757575"])
+
+(defn- export-csv! []
+  (-> (storage/read-datapoints)
+      (.then (fn [{:keys [dps]}]
+               (.share (.-Share rn) #js {:message (csv/serialize-csv dps)})))
+      (.catch (fn [e] (storage/report-error! "export-csv" e)))))
 
 (defui add-button-form []
   (let [t (theme/use-theme)
@@ -194,8 +201,13 @@
            ($ rn/Pressable {:on-press export!
                            :accessibility-label (i18n/t :export/label)
                            :style {:padding 8 :border-width 1 :border-color (:input-border t)
+                                   :border-radius 6 :margin-right 8}}
+             ($ rn/Text {:style {:color (:accent t) :font-size 14}} (i18n/t :export)))
+           ($ rn/Pressable {:on-press export-csv!
+                           :accessibility-label "CSV"
+                           :style {:padding 8 :border-width 1 :border-color (:input-border t)
                                    :border-radius 6}}
-             ($ rn/Text {:style {:color (:accent t) :font-size 14}} (i18n/t :export))))
+             ($ rn/Text {:style {:color (:accent t) :font-size 14}} "CSV")))
        ($ add-button-form)
        ($ rn/Text {:style {:font-size 14 :color (:text-secondary t) :margin-bottom 8}}
           (i18n/t :config/sync-hint))

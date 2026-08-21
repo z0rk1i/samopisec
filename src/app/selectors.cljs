@@ -56,6 +56,29 @@
           decimate-series
           (assoc :start start :end end)))))
 
+(defn series-per-button
+  "Серии по кнопкам для диапазона chart {:range k} — вектор
+   [{:id :label :color :series {:cumulative :rate :accel :start :end}}]
+   для каждой кнопки из buttons, без суммирования. Пустые серии сохраняются
+   (для легенды), но с пустыми массивами."
+  [chart datapoints buttons t0]
+  (let [{:keys [range]} chart
+        [start end] (range-window range t0)
+        bin-size (math/auto-bin-size (- end start))]
+    (mapv (fn [{:keys [id label color]}]
+            (let [ts (->> datapoints
+                          (filter #(= id (:button-id %)))
+                          (mapv :ts))]
+              {:id id
+               :label label
+               :color color
+               :series (if (empty? ts)
+                         {:cumulative [] :rate [] :accel [] :start start :end end}
+                         (-> (math/series ts start end bin-size)
+                             decimate-series
+                             (assoc :start start :end end)))}))
+          buttons)))
+
 (defn today-counts
   "Счётчики нажатий за текущий календарный день: {:total n :by-button {id n}}."
   [datapoints now-ms]

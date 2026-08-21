@@ -1,10 +1,12 @@
 (ns app.storage
   "Персистентность дата-поинтов и конфига кнопок через expo-file-system.
-   Датaпоинты — JSONL (строка на событие), конфиг — JSON. iOS: общий App Group
+   Датaпоинты — CSV (id,button_id,ts), конфиг — JSON. iOS: общий App Group
    контейнер (виджет WidgetKit читает только оттуда); Android: document dir
-   (= filesDir, оттуда же читает TapWidgetProvider)."
+   (= filesDir, оттуда же читает TapWidgetProvider). Миграция: при наличии
+   datapoints.jsonl он конвертируется в CSV."
   (:require [clojure.string :as str]
             [app.clock :as clock]
+            [app.csv :as csv]
             [app.jsonl :as jsonl]
             [app.contract :as contract]
             [app.compact :as compact]
@@ -50,20 +52,65 @@
   (new fs/File (base-dir) name))
 
 (defn- dp-file []
-  (make-file "datapoints.jsonl"))
+  (make-file "datapoints.csv"))
 
 (defn- dp-archive-file []
+  (make-file "datapoints-archive.csv"))
+
+(defn- legacy-dp-file []
+  (make-file "datapoints.jsonl"))
+
+(defn- legacy-dp-archive-file []
   (make-file "datapoints-archive.jsonl"))
 
 (defn- cfg-file []
   (make-file "config.json"))
 
-(defn- read-lines
-  "Текст файла, разобранный как JSONL, либо [] (файла нет)."
+(defn- read-csv-file
+  "Текст файла, разобранный как CSV, либо [] (файла нет)."
   [^fs/File f]
   (if (.-exists f)
-    (-> (.text f) (.then jsonl/parse-jsonl))
+    (-> (.text f) (.then csv/parse-csv))
     (js/Promise.resolve [])))
+
+(defn- migrate-jsonl-to-csv!
+  "Одноразовая миграция: если есть datapoints.jsonl а csv ещё нет — конвертирует."
+  []
+  (let [csv-f (dp-file)
+        jsonl-f (legacy-dp-file)
+        csv-a (dp-archive-file)
+        jsonl-a (legacy-dp-archive-file)]
+    (when (and (.-exists jsonl-f) (not (.-exists csv-f)))
+      (let [text (.textSync jsonl-f)
+            dps (jsonl/parse-jsonl text)]
+        (when (seq dps)
+          (let [content (csv/serialize-csv dps)
+                tmp (make-file "datapoints.csv.tmp")]
+            (when (.-exists tmp) (.delete tmp))
+            (.create tmp)
+            (.write tmp content)
+            (.moveSync tmp csv-f #js {:overwrite true})))
+        (when-not (seq dps)
+          ;; пустой jsonl -> создаём csv с header чтобы виджеты append'или корректно
+          (let [tmp (make-file "datapoints.csv.tmp")]
+            (when (.-exists tmp) (.delete tmp))
+            (.create tmp)
+            (.write tmp (str csv/header "\n"))
+            (.moveSync tmp csv-f #js {:overwrite true})))
+        (try (.delete jsonl-f) (catch :default _ nil))
+        (js/console.log "samopisec: миграция datapoints.jsonl -> datapoints.csv")))
+    (when (and (.-exists jsonl-a) (not (.-exists csv-a)))
+      (let [text (.textSync jsonl-a)
+            dps (jsonl/parse-jsonl text)]
+        (when (seq dps)
+          (let [content (csv/serialize-csv dps)
+                tmp (make-file "datapoints-archive.csv.tmp")]
+            (when (.-exists tmp) (.delete tmp))
+            (.create tmp)
+            (.write tmp content)
+            (.moveSync tmp csv-a #js {:overwrite true})))
+        (try (.delete jsonl-a) (catch :default _ nil))
+        (js/console.log "samopisec: миграция datapoints-archive.jsonl -> datapoints-archive.csv")))))
 
 (defonce ^:private write-queue (js/Promise.resolve nil))
 
@@ -111,13 +158,14 @@
    диапазон «всё» и статистика оставались полными). main-count — число строк
    только основного файла: критерий компакции, не искажённый архивом.
    Читает через write-queue — снимок после всех поставленных записей.
-   Невалидные записи отбрасываются."
+   Невалидные записи отбрасываются. Выполняет миграцию jsonl->csv при первом вызове."
   []
   (enqueue!
    (fn []
+     (try (migrate-jsonl-to-csv!) (catch :default e (report-error! "migrate" e)))
      (let [main (dp-file)
            arch (dp-archive-file)]
-       (-> (js/Promise.all #js [(read-lines main) (read-lines arch)])
+       (-> (js/Promise.all #js [(read-csv-file main) (read-csv-file arch)])
            (.then (fn [[a b]]
                     {:dps (->> (concat a b)
                                contract/normalize-datapoints
@@ -129,19 +177,20 @@
                      {:dps [] :main-count 0})))))))
 
 (defn append-datapoint!
-  "Дописывает строку datapoint в JSONL через очередь записи
-   (сериализует быстрые тапы, ловит ошибки)."
+  "Дописывает строку datapoint в CSV через очередь записи
+   (сериализует быстрые тапы, ловит ошибки). Header пишется при создании файла."
   [dp]
   (enqueue!
    (fn []
      (let [f (dp-file)]
        (when-not (.-exists f)
-         (.create f))
-       (.write f (str (js/JSON.stringify (clj->js dp)) "\n")
+         (.create f)
+         (.write f (str csv/header "\n")))
+       (.write f (str (csv/serialize-row dp) "\n")
                #js {:append true})))))
 
 (defn delete-last-datapoint!
-  "Удаляет ПОСЛЕДНИЙ дата-поинт из JSONL (для undo). Читает хвост файла через
+  "Удаляет ПОСЛЕДНИЙ дата-поинт из CSV (для undo). Читает хвост файла через
    write-queue — это истинно последний поинт, включая тапы с виджета, которых
    нет в in-memory db (db не знает о них до перезагрузки). Удаление по последней
    строке, а не по последнему поинту db — закрывает гонку undo после тапа с
@@ -154,18 +203,19 @@
        (if (.-exists f)
          (-> (.text f)
              (.then (fn [text]
-                      (let [{:keys [lines last]} (jsonl/split-last text)]
+                      (let [{:keys [lines last]} (csv/split-last text)]
                         (when last
                           (if (seq lines)
+                            ;; lines уже содержит header если был, иначе без
                             (replace-atomic! f (str (str/join "\n" lines) "\n"))
                             (.delete f))
                           last)))))
          (js/Promise.resolve nil))))))
 
 (def ^:const compact-threshold
-  "Порог числа строк datapoints.jsonl: при превышении запускается компакция —
+  "Порог числа строк datapoints.csv: при превышении запускается компакция —
    в основном файле остаются только retention-days последних дней, старшие точки
-   переносятся в datapoints-archive.jsonl."
+   переносятся в datapoints-archive.csv."
   50000)
 
 (def ^:const retention-days
@@ -173,7 +223,7 @@
   90)
 
 (defn compact-datapoints!
-  "Компакция datapoints.jsonl (см. compact-threshold/retention-days).
+  "Компакция datapoints.csv (см. compact-threshold/retention-days).
    Разделение поинтов на свежие/старые — чистый app.compact/split.
    Выполняется через write-queue (единый писатель), запись — атомарной заменой.
    Возвращает Promise, резолвится в число перенесённых в архив точек (0 = не было)."
@@ -184,28 +234,31 @@
        (if (.-exists f)
          (-> (.text f)
              (.then (fn [text]
-                      (let [lines (->> (str/split-lines (or text ""))
-                                       (filter seq)
-                                       (vec))
-                            n (count lines)]
+                      (let [dps (csv/parse-csv text)
+                            n (count dps)]
                         (if (<= n compact-threshold)
                           0
-                          (let [dps (jsonl/parse-jsonl (str/join "\n" lines))
-                                cut (compact/cutoff-ms (clock/now-ms) retention-days)
+                          (let [cut (compact/cutoff-ms (clock/now-ms) retention-days)
                                 {:keys [kept dropped]} (compact/split dps cut)
                                 dropped-count (count dropped)]
                             (when (pos? dropped-count)
                               (let [a (dp-archive-file)
-                                    content (str (str/join "\n"
-                                                             (map #(js/JSON.stringify (clj->js %)) dropped))
-                                                  "\n")]
+                                    has-header (when (.-exists a)
+                                                 (try
+                                                   (let [t (.textSync a)]
+                                                     (csv/has-header? t))
+                                                   (catch :default _ false)))]
                                 (when-not (.-exists a)
-                                  (.create a))
-                                (.write a content #js {:append true})))
+                                  (.create a)
+                                  (.write a (str csv/header "\n")))
+                                ;; если архив существует но без header (миграция) — починить
+                                (when (and (.-exists a) (not has-header))
+                                  (let [old (.textSync a)
+                                        fixed (str csv/header "\n" old)]
+                                    (replace-atomic! a fixed)))
+                                (.write a (csv/serialize-rows dropped) #js {:append true})))
                             (if (seq kept)
-                              (replace-atomic! f (str (str/join "\n"
-                                                                  (map #(js/JSON.stringify (clj->js %)) kept))
-                                                      "\n"))
+                              (replace-atomic! f (csv/serialize-csv kept))
                               (.delete f))
                             dropped-count)))))
              (.catch (fn [e] (report-error! "compact" e) 0)))

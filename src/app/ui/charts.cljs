@@ -18,8 +18,6 @@
              {:k :all :label (i18n/t :charts/range-all)}])
 
 (defn- fmt-axis
-  "Подпись оси X: ЧЧ:ММ для :day, дд.мм для остальных диапазонов (у :month/:all
-   начальная метка — это дата, а не время дня)."
   [t range]
   (when t
     (if (= range :day)
@@ -27,7 +25,6 @@
       (.toLocaleDateString (js/Date. t) #js {:day "2-digit" :month "2-digit"}))))
 
 (defn- fmt-count
-  "Компактное число: 12.5 -> 12, 1234 -> 1.2k."
   [n]
   (let [abs (js/Math.abs n)]
     (cond
@@ -36,30 +33,30 @@
       :else (.toFixed n 1))))
 
 (defn- polyline-pts
-  "Строка «x1,y1 x2,y2 ...» из точек {:x :y}."
   [pts]
   (str/join " " (map (fn [{:keys [x y]}]
                        (str (.toFixed x 1) "," (.toFixed y 1)))
                      pts)))
 
-(defui chart-card
-  "Карточка графика: сетка, подписи осей, полилиния и опциональная заливка.
-   props: {:title :points {:x :y в канвас-координатах} :color :fill? :start :end
-   :range (для формата подписей оси X)}"
-  [{:keys [title points color fill? start end range]}]
+(defui multi-chart-card
+  "Карточка графика с N линиями разных цветов (по кнопкам) на одном канвасе.
+   props: {:title :lines [{:points [{:x :y}] :color :label}] :start :end :range}"
+  [{:keys [title lines start end range]}]
   (let [t (theme/use-theme)
         {:keys [width]} (rn/useWindowDimensions)
         W (max 200.0 (- width 32.0))
         pad geom/pad
         H geom/chart-h
-        n (geom/norm-points points H pad)
-        pts (:pts n)
-        maxy (:maxy n)
-        miny (:miny n)
-        line (polyline-pts pts)
-        area (when (and fill? (seq pts))
-               (str line " " (.toFixed (- W pad) 1) "," (.toFixed (- H pad) 1)
-                    " " (.toFixed pad 1) "," (.toFixed (- H pad) 1)))]
+        all-ys (mapcat (fn [{:keys [points]}] (map :y points)) lines)
+        maxy (apply max 0.0 (or (seq all-ys) [0.0]))
+        miny (apply min 0.0 (or (seq all-ys) [0.0]))
+        span (max 1e-9 (- maxy miny))
+        norm-y (fn [y] (- H pad (* (- H (* 2 pad)) (/ (- y miny) span))))
+        normed-lines (mapv (fn [{:keys [points color label]}]
+                             {:color color :label label
+                              :pts (mapv (fn [{:keys [x y]}] {:x x :y (norm-y y)}) points)
+                              :raw-points points})
+                           lines)]
     ($ rn/View {:style {:background-color (:card t) :border-radius card-radius
                         :padding 4 :margin-bottom 12
                         :shadow-color "#000" :shadow-opacity 0.06
@@ -68,76 +65,76 @@
        ($ rn/Text {:style {:font-size 13 :font-weight "600" :color (:text t)
                            :margin-horizontal 8 :margin-top 6}}
           title)
+       ;; легенда
+       ($ rn/View {:style {:flex-direction :row :flex-wrap :wrap :margin-horizontal 8 :margin-bottom 4 :gap 8}}
+          (for [{:keys [label color]} lines]
+            ($ rn/View {:key label :style {:flex-direction :row :align-items :center :margin-right 10}}
+               ($ rn/View {:style {:width 10 :height 10 :border-radius 5 :background-color color :margin-right 6}})
+               ($ rn/Text {:style {:font-size 11 :color (:text-secondary t)}} label))))
        ($ svg/Svg {:width W :height H}
-          ;; горизонтальные линии сетки (0/25/50/75/100%)
           (for [f [0 0.25 0.5 0.75 1]]
             ($ svg/Line {:key f
                          :x1 pad :y1 (+ pad (* f (- H (* 2 pad))))
                          :x2 (- W pad) :y2 (+ pad (* f (- H (* 2 pad))))
                          :stroke (if (or (zero? f) (= f 1.0)) (:grid-line t) (:grid-line-soft t))
                          :stroke-width 1}))
-          ;; заливка под кривой
-          (when area
-            ($ svg/Polygon {:points area
-                            :fill color :fill-opacity 0.08}))
-          ;; полилиния
-          ($ svg/Polyline {:points line
-                           :fill "none" :stroke color :stroke-width 2.5
-                           :stroke-linejoin "round" :stroke-linecap "round"})
-          ;; подпись максимума
-          ($ svg/Text {:x 4 :y 13 :fill (:chart-label t) :font-size 10}
-             (fmt-count maxy))
-          ;; подпись минимума
-          ($ svg/Text {:x 4 :y (- H 4) :fill (:chart-label t) :font-size 10}
-             (fmt-count miny))
-          ;; подписи по X
+          (for [{:keys [pts color]} normed-lines]
+            (let [line (polyline-pts pts)
+                  area (when (seq pts)
+                         (str line " " (.toFixed (- W pad) 1) "," (.toFixed (- H pad) 1)
+                              " " (.toFixed pad 1) "," (.toFixed (- H pad) 1)))]
+              ($ svg/G {:key color}
+                 (when area
+                   ($ svg/Polygon {:points area :fill color :fill-opacity 0.08}))
+                 ($ svg/Polyline {:points line :fill "none" :stroke color :stroke-width 2.5
+                                  :stroke-linejoin "round" :stroke-linecap "round"}))))
+          ($ svg/Text {:x 4 :y 13 :fill (:chart-label t) :font-size 10} (fmt-count maxy))
+          ($ svg/Text {:x 4 :y (- H 4) :fill (:chart-label t) :font-size 10} (fmt-count miny))
           (when (and start end)
-            ($ svg/Text {:x pad :y (- H 4) :fill (:chart-time t) :font-size 10}
-               (fmt-axis start range))
-            ($ svg/Text {:x (- W pad) :y (- H 4) :fill (:chart-time t) :font-size 10
-                         :text-anchor "end"}
-               (fmt-axis end range)))))))
+            ($ svg/Text {:x pad :y (- H 4) :fill (:chart-time t) :font-size 10} (fmt-axis start range))
+            ($ svg/Text {:x (- W pad) :y (- H 4) :fill (:chart-time t) :font-size 10 :text-anchor "end"} (fmt-axis end range)))))))
 
 (defui cumulative-panel
-  "Кумулятивная кривая. Серия сырая, конвертацию в точки канваса и проверку
-   пустоты делает timeline/points + chart-card."
-  [{:keys [series range W]}]
+  [{:keys [series-per-button range W]}]
   (let [t (theme/use-theme)
-        {:keys [start end]} series
-        pts (timeline/points {:series series :k :cumulative :start start :end end :W W})]
-    (if (empty? pts)
-      ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
-         (i18n/t :charts/cumulative-empty))
-      ($ chart-card {:title (i18n/t :charts/cumulative-title) :points pts
-                     :color (:accent t) :fill? true
-                     :start start :end end :range range}))))
+        lines (->> series-per-button
+                   (keep (fn [{:keys [label color series]}]
+                           (let [pts (timeline/points {:series series :k :cumulative :start (:start series) :end (:end series) :W W})]
+                             (when (seq pts) {:points pts :color color :label label}))))
+                   vec)
+        start (some-> series-per-button first :series :start)
+        end (some-> series-per-button first :series :end)]
+    (if (empty? lines)
+      ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}} (i18n/t :charts/cumulative-empty))
+      ($ multi-chart-card {:title (i18n/t :charts/cumulative-title) :lines lines :start start :end end :range range}))))
 
 (defui rate-panel
-  "Скорость нажатий (1-я производная)."
-  [{:keys [series range W]}]
+  [{:keys [series-per-button range W]}]
   (let [t (theme/use-theme)
-        {:keys [start end]} series
-        pts (timeline/points {:series series :k :rate :start start :end end :W W})]
-    (if (empty? pts)
-      ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
-         (i18n/t :charts/rate-empty))
-      ($ chart-card {:title (i18n/t :charts/rate-title) :points pts
-                     :color (:success t)
-                     :start start :end end :range range}))))
+        lines (->> series-per-button
+                   (keep (fn [{:keys [label color series]}]
+                           (let [pts (timeline/points {:series series :k :rate :start (:start series) :end (:end series) :W W})]
+                             (when (seq pts) {:points pts :color color :label label}))))
+                   vec)
+        start (some-> series-per-button first :series :start)
+        end (some-> series-per-button first :series :end)]
+    (if (empty? lines)
+      ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}} (i18n/t :charts/rate-empty))
+      ($ multi-chart-card {:title (i18n/t :charts/rate-title) :lines lines :start start :end end :range range}))))
 
 (defui accel-panel
-  "Ускорение (2-я производная). X из rate[i].t — rate и accel выровнены по
-   индексу, поэтому отдельных координат не нужно."
-  [{:keys [series range W]}]
+  [{:keys [series-per-button range W]}]
   (let [t (theme/use-theme)
-        {:keys [start end]} series
-        pts (timeline/points {:series series :k :accel :start start :end end :W W})]
-    (if (empty? pts)
-      ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}}
-         (i18n/t :charts/accel-empty))
-      ($ chart-card {:title (i18n/t :charts/accel-title) :points pts
-                     :color (:purple t)
-                     :start start :end end :range range}))))
+        lines (->> series-per-button
+                   (keep (fn [{:keys [label color series]}]
+                           (let [pts (timeline/points {:series series :k :accel :start (:start series) :end (:end series) :W W})]
+                             (when (seq pts) {:points pts :color color :label label}))))
+                   vec)
+        start (some-> series-per-button first :series :start)
+        end (some-> series-per-button first :series :end)]
+    (if (empty? lines)
+      ($ rn/Text {:style {:color (:chart-label t) :font-size 13 :margin-bottom 12}} (i18n/t :charts/accel-empty))
+      ($ multi-chart-card {:title (i18n/t :charts/accel-title) :lines lines :start start :end end :range range}))))
 
 (defui range-chips []
   (let [t (theme/use-theme)
@@ -153,29 +150,6 @@
                                   :background-color (if (= k (:range chart)) (:accent t) (:accent-soft t))}}
             ($ rn/Text {:style {:color (if (= k (:range chart)) (:text-on-accent t) (:text t))
                                 :font-size 14}} label))))))
-
-(defui button-chips []
-  (let [t (theme/use-theme)
-        chart (use-subscribe [:chart])
-        buttons (use-subscribe [:buttons])
-        set-opt! #(rf/dispatch [:chart/set %1 %2])]
-    ($ rn/View {:style {:flex-direction :row :flex-wrap :wrap :margin-bottom 8}}
-($ rn/Pressable {:on-press #(set-opt! :button-id :all)
-                        :accessibility-label (i18n/t :charts/filter-all-accessibility)
-                        :style {:padding-horizontal 12 :padding-vertical 6
-                                :border-radius 16 :margin-right 8 :margin-bottom 4
-                                :background-color (if (= :all (:button-id chart)) (:accent t) (:accent-soft t))}}
-           ($ rn/Text {:style {:color (if (= :all (:button-id chart)) (:text-on-accent t) (:text t))}}
-              (i18n/t :charts/filter-all)))
-       (for [b buttons]
-         ($ rn/Pressable {:key (:id b)
-                          :on-press #(set-opt! :button-id (:id b))
-                          :accessibility-label (i18n/tf :charts/filter-accessibility (:label b))
-                          :style {:padding-horizontal 12 :padding-vertical 6
-                                  :border-radius 16 :margin-right 8 :margin-bottom 4
-                                  :background-color (if (= (:id b) (:button-id chart)) (:accent t) (:accent-soft t))}}
-            ($ rn/Text {:style {:color (if (= (:id b) (:button-id chart)) (:text-on-accent t) (:text t))}}
-               (:label b)))))))
 
 (defui toggles []
   (let [t (theme/use-theme)
@@ -196,17 +170,16 @@
   (let [t (theme/use-theme)
         {:keys [width]} (rn/useWindowDimensions)
         W (max 200.0 (- width 32.0))
-        series (use-subscribe [:chart/series])
+        series-per-button (use-subscribe [:chart/series-per-button])
         chart (use-subscribe [:chart])]
     ($ rn/View {:style {:flex 1 :padding 16 :background-color (:bg t)}}
        ($ rn/Text {:style {:font-size 24 :font-weight "700" :color (:text t) :margin-bottom 12}}
           (i18n/t :charts/title))
        ($ range-chips)
-       ($ button-chips)
        ($ toggles)
        ($ rn/ScrollView {:style {:flex 1}}
-          ($ cumulative-panel {:series series :range (:range chart) :W W})
+          ($ cumulative-panel {:series-per-button series-per-button :range (:range chart) :W W})
           (when (:show-rate chart)
-            ($ rate-panel {:series series :range (:range chart) :W W}))
+            ($ rate-panel {:series-per-button series-per-button :range (:range chart) :W W}))
           (when (:show-accel chart)
-            ($ accel-panel {:series series :range (:range chart) :W W}))))))
+            ($ accel-panel {:series-per-button series-per-button :range (:range chart) :W W}))))))

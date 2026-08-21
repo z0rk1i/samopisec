@@ -32,7 +32,9 @@ class TapWidgetProvider : AppWidgetProvider() {
       File(context.filesDir, "config.json")
 
     fun datapointsFile(context: Context): File =
-      File(context.filesDir, "datapoints.jsonl")
+      File(context.filesDir, "datapoints.csv")
+
+    private const val CSV_HEADER = "id,button_id,ts"
 
     fun vibrate(context: Context) {
       val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
@@ -158,11 +160,19 @@ class TapWidgetProvider : AppWidgetProvider() {
 
   private fun appendDatapoint(context: Context, buttonId: String) {
     val file = datapointsFile(context)
-    val dp = JSONObject().apply {
-      put("id", UUID.randomUUID().toString())
-      put("button-id", buttonId)
-      put("ts", System.currentTimeMillis())
+    if (!file.exists()) {
+      file.writeText("$CSV_HEADER\n")
+    } else if (file.length() == 0L) {
+      file.writeText("$CSV_HEADER\n")
+    } else {
+      val firstLine = try { file.bufferedReader().readLine() } catch (e: Exception) { null }
+      if (firstLine != CSV_HEADER) {
+        val old = try { file.readText() } catch (e: Exception) { "" }
+        file.writeText("$CSV_HEADER\n$old")
+      }
     }
-    file.appendText(dp.toString() + "\n")
+    val id = UUID.randomUUID().toString()
+    val ts = System.currentTimeMillis()
+    file.appendText("$id,$buttonId,$ts\n")
   }
 }

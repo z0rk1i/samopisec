@@ -20,6 +20,11 @@
    (selectors/series (:chart db) (:datapoints db) (clock/now-ms))))
 
 (rf/reg-sub
+ :chart/series-per-button
+ (fn [db _]
+   (selectors/series-per-button (:chart db) (:datapoints db) (:buttons db) (clock/now-ms))))
+
+(rf/reg-sub
  :today/counts
  (fn [db _]
    (selectors/today-counts (:datapoints db) (clock/now-ms))))

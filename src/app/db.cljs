@@ -10,7 +10,7 @@
 
 (defn default-db
   []
-  {:screen :config
+  {:screen :charts
    :buttons []
    :datapoints []
    :config/dirty false
