@@ -728,3 +728,43 @@ classes.dex (RN-фреймворк); 2,2 МБ — JS-бандл; ~10 МБ — р
 ### Открыто
 - Компромисс: установленный размер вырастет (libs распакованы на диск ~16 МБ).
   Для скачивания/распространения — выигрыш очевиден.
+
+## ADR-0021 — Переход datapoints с JSONL на CSV + Grafana (вариант A)
+
+**Дата:** 2026-08-21
+**Статус:** принято
+
+### Контекст
+JSONL (`{"id","button-id","ts"}`) неудобен для внешней аналитики. Запрошен CSV + графики в Grafana (локально, без бекенда).
+
+### Решение
+1. **CSV:** `datapoints.csv` header `id,button_id,ts` (ts = epoch ms int), `datapoints-archive.csv` аналогично. `id`/`button_id` без запятых — кавычки не нужны.
+2. **Модуль** `src/app/csv.cljs` — чистые `parse-csv`/`serialize-*`/`split-last`/`has-header?`, контракт `app.contract` без изменений (ts ms). Покрыт `test/app/csv_test.cljs` (6 тестов, round-trip).
+3. **Миграция** в `src/app/storage.cljs` — при первом `read-datapoints` если `datapoints.jsonl` существует а `csv` нет — `jsonl/parse-jsonl` → `csv/serialize-csv` через `replace-atomic!`, исходный jsonl удаляется. Аналогично архив. `append-datapoint!` пишет header при создании.
+4. **Нативные виджеты:** `TapWidgetProvider.kt:35` и `widgets.swift:19` пишут CSV с header, чинят файл без header (миграция).
+5. **Экспорт:** `src/app/ui/config.cljs` — вторая кнопка `CSV` (`csv/serialize-csv` share).
+6. **Grafana вариант A:** `grafana/docker-compose.yml` (grafana:11.5.2 + marcusolsson-csv-datasource, volume `/tmp/samopisec.csv`), provisioning `grafana/provisioning/{datasources, dashboards}`, dashboard `grafana/dashboards/samopisec.json` (4 панели: Raw Table, Cumulative timeseries, Totals per button, Per-hour). Синхронизация `scripts/sync-csv.sh` (adb pull / simctl → `/tmp/samopisec.csv`, `--watch`).
+
+### Проверка
+- `npx clj-kondo --lint` 0, `shadow-cljs compile {app,test}` 0 warnings, 44 теста / 186 assertions pass, `swiftc -typecheck` чист, `compile app` 157 файлов 0 warnings.
+- `sync-csv.sh` создаёт `/tmp/samopisec.csv` с header.
+
+### Открыто
+- Grafana без запущенного `docker` — проверить `docker compose up` и live данные с эмулятора.
+
+## ADR-0022 — Графики по кнопкам цветом на одном канвасе + полностью оффлайн Grafana
+
+**Дата:** 2026-08-21
+**Статус:** принято
+
+### Контекст
+Графики суммировали нажатия разных кнопок; требовались отдельные кривые цветом кнопки на одном графике. Графана и приложение должны работать без сети.
+
+### Решение
+1. **Селекторы:** `series-per-button` (по кнопкам из `config.json` с цветом) + подписка `:chart/series-per-button`, `range-window` общий.
+2. **UI:** `multi-chart-card` с глобальной Y и легендой, `cumulative/rate/accel-panel` per-button через `timeline/points`, удалён фильтр `button-chips`.
+3. **Offline Grafana:** `assets/grafana-offline/index.html` переписан на per-button `drawCumulativePerButton` + легенда, `offline_html.cljs` инлайн, `ui/grafana.cljs` только offline WebView с инжектом `SAMOPISEC_CSV` + `SAMOPISEC_BUTTONS`, фолбэк удалён.
+4. **Оффлайн:** удалён `sync` push и `mode :remote`, `app.json` extra, `usesCleartextTraffic` оставлен; `grafana` docker остаётся для dev.
+
+### Проверка
+`clj-kondo` 0, `shadow-cljs` 0 warnings, 44/186 pass, WebView оффлайн в авиарежиме показывает N цветных кривых.
