@@ -180,3 +180,10 @@
       android.enableBundleCompression=true (Hermes-бандл сжат), resConfigs en,ru
 - [x] результат: 23 → 10 МБ (libreactnative 6,66→2,22, бандл 2,35→0,93)
 - [x] проверка на эмуляторе: установка, запуск, виджет-рефреш — всё работает
+
+## Сессия 2026-08-23 — Производные в offline Grafana (ADR-0023)
+- [x] панели «Производная 1»/«Производная 2» в grafana-offline (+перегенерация offline_html.cljs)
+- [x] порт математики app.math в JS + node smoke-тест (17 ok), headless drawDerivative OK
+- [x] удалены мёртвые ui/charts.cljs, timeline.cljs(+test), :charts/* i18n
+- [x] lint 0/0, 43 теста / 174 assertions pass, compile app 0 warnings
+- [ ] живой WebView на эмуляторе/устройстве (release APK)
