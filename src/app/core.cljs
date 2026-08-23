@@ -12,7 +12,6 @@
             [app.storage :as storage]
             [app.ui.config :as config-screen]
             [app.ui.grafana :as grafana-screen]
-            [app.ui.stats :as stats-screen]
             [app.i18n :as i18n]))
 
 (defui tab-bar []
@@ -24,8 +23,7 @@
                         :border-top-color (:border t)
                         :padding-bottom (+ 8 (.-bottom insets))}}
        (for [[k label] [[:charts (i18n/t :tabs/charts)]
-                 [:config (i18n/t :tabs/config)]
-                 [:stats (i18n/t :tabs/stats)]]]
+                 [:config (i18n/t :tabs/config)]]]
          ($ rn/Pressable {:key k
                           :on-press #(set-opt! k)
                           :accessibility-label label
@@ -54,7 +52,6 @@
     ($ rn/View {:style {:flex 1 :padding-top (.-top insets)}}
        (cond
          (= screen :charts) ($ grafana-screen/screen)
-         (= screen :stats) ($ stats-screen/screen)
          :else ($ config-screen/screen))
        ($ error-banner)
        ($ tab-bar))))

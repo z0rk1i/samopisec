@@ -5,9 +5,8 @@
 
 (defn- ru
   []
-  {:tabs/charts "Графики"
+  {   :tabs/charts "Графики"
    :tabs/config "Кнопки"
-   :tabs/stats "Статистика"
 
    :header/today "сегодня:"
 
@@ -50,18 +49,7 @@
    :empty/step1 "1. Добавьте кнопку выше — например «Чай» или «Кофе»."
    :empty/step2 "2. На главном экране: удерживайте палец → «Виджеты» → Samopisec."
    :empty/step3 "3. Тапайте по кнопкам на виджете — каждое нажатие записывается."
-   :empty/hint "Графики и статистика обновляются автоматически."
-
-   :stats/total "Всего"
-   :stats/streak "Серия"
-   :stats/streak-zero "нет дней подряд"
-   :stats/streak-sub "%s дней подряд"
-   :stats/best-day "Лучший день"
-   :stats/by-buttons "По кнопкам"
-   :stats/button-col "Кнопка"
-   :stats/count-col "Нажатий"
-   :stats/by-buttons-empty "Нет кнопок — добавьте в разделе «Кнопки»."
-   :stats/by-hour "По часам"
+   :empty/hint "Графики обновляются автоматически."
 
    :storage/error-dismiss "Закрыть"})
 

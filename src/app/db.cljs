@@ -58,7 +58,6 @@
 (rf/reg-sub
  :buttons
  (fn [db _] (:buttons db)))
-
 (rf/reg-sub
  :datapoints
  (fn [db _] (:datapoints db)))
@@ -66,25 +65,6 @@
 (rf/reg-sub
  :storage/error
  (fn [db _] (:storage/error db)))
-
-(rf/reg-sub
- :stats/totals
- (fn [db _]
-   (selectors/per-button-totals (:datapoints db))))
-
-(rf/reg-sub
- :stats/streak
- (fn [db _]
-   (selectors/current-streak (:datapoints db) (clock/now-ms))))
-(rf/reg-sub
- :stats/best-day
- (fn [db _]
-   (selectors/best-day (:datapoints db))))
-
-(rf/reg-sub
- :stats/heatmap
- (fn [db _]
-   (selectors/per-hour-heatmap (:datapoints db))))
 
 (rf/reg-sub
  :today/counts
