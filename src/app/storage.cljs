@@ -215,7 +215,7 @@
 (defn- delete-last-from
   "Снимает последнюю строку файла f (по чистому плану undo-plan): атомарная
    замена, удаление исчерпанного файла или nil. Возвращает Promise<dp-or-nil>."
-  [f]
+  [^fs/File f]
   (if (.-exists f)
     (-> (.text f)
         (.then (fn [text]
