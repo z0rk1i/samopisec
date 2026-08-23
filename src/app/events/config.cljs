@@ -2,13 +2,19 @@
   "re-frame: события и fx конфига кнопок — CRUD, грязный флаг, сохранение,
   обновление виджета. Отделено от app.db по смыслу."
   (:require [re-frame.core :as rf]
+            [app.selectors :as selectors]
             [app.storage :as storage]
             [app.widget :as widget]))
 
 (rf/reg-event-db
  :config/loaded
+ ;; Отложенное чтение не откатывает несохранённые правки: при :config/dirty
+ ;; загруженный конфиг игнорируется.
  (fn [db [_ cfg]]
-   (assoc db :buttons (or (:buttons cfg) []))))
+   (assoc db :buttons (selectors/resolve-loaded-buttons
+                       (:config/dirty db)
+                       (:buttons db)
+                       (:buttons cfg)))))
 
 (rf/reg-event-db
  :config/add

@@ -1,14 +1,17 @@
 (ns app.events.data
   "re-frame: события и fx дата-поинтов — запись тапа, undo, загрузка из файла,
-   компакция. Отделено от app.db по смыслу (данные vs конфиг vs график)."
+   компакция. Отделено от app.db по смыслу (данные vs конфиг)."
   (:require [re-frame.core :as rf]
             [app.clock :as clock]
+            [app.selectors :as selectors]
             [app.storage :as storage]))
 
 (rf/reg-event-fx
  :data/loaded
+ ;; merge вместо замены: оптимистичный тап, случившийся между постановкой
+ ;; чтения в очередь и его резолвом, не вымывается из UI (дедупликация по :id).
  (fn [{:keys [db]} [_ {:keys [dps main-count]}]]
-   (let [dps (or dps [])]
+   (let [dps (selectors/merge-datapoints (:datapoints db) (or dps []))]
      (if (> (or main-count 0) storage/compact-threshold)
        {:db (assoc db :datapoints dps)
         :compact/run nil}
