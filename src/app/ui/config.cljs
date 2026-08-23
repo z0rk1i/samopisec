@@ -147,7 +147,8 @@
           ($ rn/View {:style {:width 16 :height 16 :border-radius 8
                               :background-color color :margin-right 10}})
           ($ rn/Text {:style {:flex 1 :font-size 16 :color (:text t)}} label)
-          ($ rn/Text {:style {:font-size 14 :color (:text-secondary t) :margin-right 12}}
+          ($ rn/Text {:style {:font-size 14 :color (:text-secondary t) :margin-right 12}
+                      :accessibility-label (i18n/tf :record/count-today-a11y label count)}
              (if (zero? count) "0" (str count)))
           ($ rn/Pressable {:on-press record!
 :accessibility-label (i18n/tf :record/label label)

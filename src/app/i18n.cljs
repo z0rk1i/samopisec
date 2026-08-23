@@ -34,6 +34,7 @@
 
    :record/label "Записать нажатие «%s»"
    :record/button "Жми"
+   :record/count-today-a11y "Кнопка «%s», нажатий сегодня: %s"
    :edit/button-label "Редактировать кнопку «%s»"
    :delete/button-label "Удалить кнопку «%s»"
 
