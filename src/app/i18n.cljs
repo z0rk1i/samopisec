@@ -3,10 +3,6 @@
    t — строка по ключу, tf — с подстановкой %s."
   (:require [clojure.string :as str]))
 
-(defonce ^:private locale (atom :ru))
-
-(defn set-locale! [l] (reset! locale l))
-
 (defn- ru
   []
   {:tabs/charts "Графики"
