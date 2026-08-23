@@ -44,3 +44,16 @@
   "Оставляет только валидные дата-поинты."
   [dps]
   (filterv datapoint? dps))
+
+(defn dedupe-by-id
+  "Оставляет ПЕРВЫЙ дата-поинт для каждого :id, порядок сохраняется.
+   Страховка от дублей при переносе spill-файла виджетов в основной
+   (краш между append и delete оставит строки в обоих файлах — ADR-0024)."
+  [dps]
+  (->> dps
+       (reduce (fn [{:keys [seen out]} dp]
+                 (if (contains? seen (:id dp))
+                   {:seen seen :out out}
+                   {:seen (conj seen (:id dp)) :out (conj out dp)}))
+               {:seen #{} :out []})
+       :out))

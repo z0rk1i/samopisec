@@ -57,6 +57,13 @@
 (defn- dp-archive-file []
   (make-file "datapoints-archive.csv"))
 
+(defn- spill-file
+  "Spill-файл тапов виджетов (ADR-0024): виджеты пишут ТОЛЬКО сюда (append),
+   приложение переносит строки в основной файл под очередью записи. Основной
+   файл становится однописательным — окно гонки app↔виджет исчезает."
+  []
+  (make-file "datapoints-spill.csv"))
+
 (defn- legacy-dp-file []
   (make-file "datapoints.jsonl"))
 
@@ -152,22 +159,44 @@
     (.write tmp content)
     (.moveSync tmp f #js {:overwrite true})))
 
+(defn- drain-spill!
+  "Переносит тапы виджетов из datapoints-spill.csv в основной файл (ADR-0024).
+   Вызывается ТОЛЬКО внутри write-queue. Порядок «append в main → delete spill»
+   устойчив к крашу: недобитые строки останутся в spill до следующего дренажа,
+   а возможный дубль после краша между append и delete гасится дедупликацией
+   по :id при чтении (contract/dedupe-by-id)."
+  []
+  (let [sp (spill-file)]
+    (when (.-exists sp)
+      (let [rows (csv/parse-csv (.textSync sp))]
+        (when (seq rows)
+          (let [f (dp-file)]
+            (when-not (.-exists f)
+              (.create f)
+              (.write f (str csv/header "\n")))
+            (.write f (csv/serialize-rows rows) #js {:append true})))
+        (.delete sp)))))
+
 (defn read-datapoints
   "Возвращает Promise<{:dps [datapoint] :main-count n}>.
-   dps — отсортированные по времени поинты (основной файл + архив, чтобы
-   диапазон «всё» и статистика оставались полными). main-count — число строк
+   dps — отсортированные по времени поинты: основной файл + архив + остаток
+   spill, дедуплицированные по :id (страховка от двойного дренажа), чтобы
+   диапазон «всё» и статистика оставались полными. main-count — число строк
    только основного файла: критерий компакции, не искажённый архивом.
    Читает через write-queue — снимок после всех поставленных записей.
-   Невалидные записи отбрасываются. Выполняет миграцию jsonl->csv при первом вызове."
+   Невалидные записи отбрасываются. Выполняет миграцию jsonl->csv и дренаж
+   spill виджетов."
   []
   (enqueue!
    (fn []
      (try (migrate-jsonl-to-csv!) (catch :default e (report-error! "migrate" e)))
+     (try (drain-spill!) (catch :default e (report-error! "drain-spill" e)))
      (let [main (dp-file)
            arch (dp-archive-file)]
        (-> (js/Promise.all #js [(read-csv-file main) (read-csv-file arch)])
            (.then (fn [[a b]]
                     {:dps (->> (concat a b)
+                               contract/dedupe-by-id
                                contract/normalize-datapoints
                                (sort-by :ts)
                                vec)
@@ -189,28 +218,48 @@
        (.write f (str (csv/serialize-row dp) "\n")
                #js {:append true})))))
 
+(defn- delete-last-from-archive!
+  "Снимает последнюю строку архива (fallback undo после компакции, когда
+   основной файл пуст). Возвращает Promise<dp-or-nil>."
+  []
+  (let [a (dp-archive-file)]
+    (if (.-exists a)
+      (-> (.text a)
+          (.then (fn [text]
+                   (let [{:keys [lines last]} (csv/split-last text)]
+                     (when last
+                       (if (seq lines)
+                         (replace-atomic! a (str (str/join "\n" lines) "\n"))
+                         (.delete a))
+                       last)))))
+      (js/Promise.resolve nil))))
+
 (defn delete-last-datapoint!
-  "Удаляет ПОСЛЕДНИЙ дата-поинт из CSV (для undo). Читает хвост файла через
-   write-queue — это истинно последний поинт, включая тапы с виджета, которых
-   нет в in-memory db (db не знает о них до перезагрузки). Удаление по последней
-   строке, а не по последнему поинту db — закрывает гонку undo после тапа с
-   виджета. Возвращает Promise<dp-or-nil> (nil — файл пуст или последняя строка
-   битая; в этом случае файл не трогается)."
+  "Удаляет ПОСЛЕДНИЙ дата-поинт (для undo): сначала дренажует spill виджетов —
+   тап с виджета тоже кандидат на «последний», которого нет в db до перезагрузки;
+   затем снимает последнюю строку основного файла; если основной пуст или его
+   нет — из архива (undo работает и после компакции). Удаление по последней
+   строке файла, а не по последнему поинту db — закрывает гонку undo после тапа
+   с виджета. Возвращает Promise<dp-or-nil> (nil — данных больше нет или
+   последняя строка битая; в этом случае файл не трогается)."
   []
   (enqueue!
    (fn []
+     (try (drain-spill!) (catch :default e (report-error! "drain-spill" e)))
      (let [f (dp-file)]
        (if (.-exists f)
          (-> (.text f)
              (.then (fn [text]
                       (let [{:keys [lines last]} (csv/split-last text)]
-                        (when last
-                          (if (seq lines)
+                        (if last
+                          (do
                             ;; lines уже содержит header если был, иначе без
-                            (replace-atomic! f (str (str/join "\n" lines) "\n"))
-                            (.delete f))
-                          last)))))
-         (js/Promise.resolve nil))))))
+                            (if (seq lines)
+                              (replace-atomic! f (str (str/join "\n" lines) "\n"))
+                              (.delete f))
+                            last)
+                          (delete-last-from-archive!))))))
+         (delete-last-from-archive!))))))
 
 (def ^:const compact-threshold
   "Порог числа строк datapoints.csv: при превышении запускается компакция —

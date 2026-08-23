@@ -41,3 +41,16 @@
          (c/normalize-datapoints [{:id "a" :button-id "x" :ts 1}
                                   {:id "bad" :button-id "x" :ts -5}
                                   {:id "bad2" :ts 2}]))))
+
+(deftest dedupe-by-id-test
+  (testing "первый поинт побеждает, порядок сохраняется"
+    (is (= [{:id "a" :button-id "x" :ts 1}
+            {:id "b" :button-id "y" :ts 2}
+            {:id "c" :button-id "x" :ts 3}]
+           (c/dedupe-by-id [{:id "a" :button-id "x" :ts 1}
+                            {:id "b" :button-id "y" :ts 2}
+                            {:id "a" :button-id "x" :ts 1}
+                            {:id "c" :button-id "x" :ts 3}
+                            {:id "b" :button-id "y" :ts 2}]))))
+  (testing "пустой вход"
+    (is (= [] (c/dedupe-by-id [])))))
