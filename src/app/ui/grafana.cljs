@@ -1,9 +1,13 @@
 (ns app.ui.grafana
-  (:require [uix.core :refer [$ defui]]
+  "Экран «Графики»: offline-Grafana в WebView. Данные считает приложение
+   (app.grafana-series на базе app.math) и инжектит готовый JSON
+   window.SAMOPISEC_SERIES; HTML внутри — только рендер. Источник WebView
+   мемоизирован по payload: перезагрузка страницы только при смене данных."
+  (:require [uix.core :refer [$ defui use-memo]]
             [uix.re-frame :refer [use-subscribe]]
             [react-native :as rn]
             [app.theme :as theme]
-            [app.csv :as csv]
+            [app.grafana-series :as grafana-series]
             [app.offline-html :as offline]
             ["react-native-webview" :as rnv]))
 
@@ -13,16 +17,13 @@
   (let [t (theme/use-theme)
         dps (use-subscribe [:datapoints])
         buttons (use-subscribe [:buttons])
-        csv (csv/serialize-csv dps)
-        injected (str "window.SAMOPISEC_CSV=" (js/JSON.stringify csv) ";"
-                      "window.SAMOPISEC_BUTTONS=" (js/JSON.stringify (clj->js buttons)) ";"
-                      "window.__SAMOPISEC_CSV=window.SAMOPISEC_CSV;"
-                      "window.__SAMOPISEC_BUTTONS=window.SAMOPISEC_BUTTONS;")]
+        payload (use-memo (fn [] (grafana-series/series-payload dps buttons))
+                          [dps buttons])
+        injected (str "window.SAMOPISEC_SERIES=" (js/JSON.stringify (clj->js payload)) ";")]
     ($ rn/View {:style {:flex 1 :background-color (:bg t)}}
        ($ WebView {:source #js {:html (str offline/html "<script>" injected "</script>") :baseUrl ""}
                    :style {:flex 1 :backgroundColor (:bg t)}
                    :javaScriptEnabled true
                    :domStorageEnabled true
                    :allowFileAccess true
-                   :originWhitelist #js ["*"]
-                   :onMessage (fn [_] nil)}))))
+                   :originWhitelist #js ["*"]}))))
