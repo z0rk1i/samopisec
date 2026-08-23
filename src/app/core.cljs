@@ -8,6 +8,7 @@
             [app.db]
             [app.events.data]
             [app.events.config]
+            [app.events.grafana]
             [app.theme :as theme]
             [app.storage :as storage]
             [app.ui.config :as config-screen]
@@ -50,9 +51,12 @@
   (let [screen (use-subscribe [:screen])
         insets (safe-area/useSafeAreaInsets)]
     ($ rn/View {:style {:flex 1 :padding-top (.-top insets)}}
-       (cond
-         (= screen :charts) ($ grafana-screen/screen)
-         :else ($ config-screen/screen))
+       ;; Экраны смонтированы постоянно, переключение — display: Grafana-WebView
+       ;; не пересоздаётся и не перезагружается при смене вкладки.
+       ($ rn/View {:style {:flex 1 :display (if (= screen :charts) :flex :none)}}
+          ($ grafana-screen/screen))
+       ($ rn/View {:style {:flex 1 :display (if (= screen :config) :flex :none)}}
+          ($ config-screen/screen))
        ($ error-banner)
        ($ tab-bar))))
 

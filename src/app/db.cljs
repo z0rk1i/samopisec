@@ -14,7 +14,8 @@
    :buttons []
    :datapoints []
    :config/dirty false
-   :storage/error nil})
+   :storage/error nil
+   :grafana/payload nil})
 
 (rf/reg-event-db
  :app/init
@@ -70,3 +71,7 @@
  :today/counts
  (fn [db _]
    (selectors/today-counts (:datapoints db) (clock/now-ms))))
+
+(rf/reg-sub
+ :grafana/payload
+ (fn [db _] (:grafana/payload db)))

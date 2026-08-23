@@ -191,6 +191,17 @@ function init(){
   render(S);
 }
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", init); else init();
+// Обновление живой страницы из приложения (react-native-webview.postMessage):
+// строка-JSON того же payload. Слушаем оба канала — iOS и Android доставляют
+// события по-разному.
+function onNativeMessage(e){
+  try{
+    const d=typeof e.data==="string"?JSON.parse(e.data):e.data;
+    if(d&&d.points!=null) render(d);
+  }catch(err){}
+}
+window.addEventListener("message",onNativeMessage,false);
+document.addEventListener("message",onNativeMessage,false);
 </script>
 </body>
 </html>
