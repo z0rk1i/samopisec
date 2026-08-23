@@ -15,11 +15,14 @@ enum WidgetStore {
     containerURL?.appendingPathComponent("config.json")
   }
 
-  static func datapointsURL() -> URL? {
-    containerURL?.appendingPathComponent("datapoints.csv")
+  // ADR-0024: тапы виджет пишет ТОЛЬКО в spill-файл (append). Приложение
+  // переносит строки в datapoints.csv под своей очередью записи — основной
+  // файл однописательный, окно гонки app↔виджет исчезло.
+  static func spillURL() -> URL? {
+    containerURL?.appendingPathComponent("datapoints-spill.csv")
   }
 
-  static let csvHeader = "id,button_id,ts"
+  private static let spillHeader = "id,button_id,ts"
 
   struct ButtonInfo: Identifiable {
     let id: String
@@ -36,18 +39,13 @@ enum WidgetStore {
   }
 
   static func appendDatapoint(buttonId: String) {
-    guard let url = datapointsURL() else { return }
+    guard let url = spillURL() else { return }
     let fm = FileManager.default
     if !fm.fileExists(atPath: url.path) {
-      try? (csvHeader + "\n").write(to: url, atomically: true, encoding: .utf8)
+      try? (spillHeader + "\n").write(to: url, atomically: true, encoding: .utf8)
     } else if let attrs = try? fm.attributesOfItem(atPath: url.path),
               (attrs[.size] as? UInt64 ?? 1) == 0 {
-      try? (csvHeader + "\n").write(to: url, atomically: true, encoding: .utf8)
-    } else if let first = try? String(contentsOf: url, encoding: .utf8).components(separatedBy: "\n").first,
-              first != csvHeader {
-      if let old = try? String(contentsOf: url, encoding: .utf8) {
-        try? (csvHeader + "\n" + old).write(to: url, atomically: true, encoding: .utf8)
-      }
+      try? (spillHeader + "\n").write(to: url, atomically: true, encoding: .utf8)
     }
     let ts = Int64(Date().timeIntervalSince1970 * 1000)
     let line = "\(UUID().uuidString),\(buttonId),\(ts)\n"
