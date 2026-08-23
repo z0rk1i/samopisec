@@ -249,7 +249,13 @@ function render(csvText, buttons){
     btns.forEach(b=>{
       const el=document.createElement("div");
       el.className="legend-item";
-      el.innerHTML='<span class="legend-dot" style="background:'+b.color+'"></span>'+b.label;
+      const dot=document.createElement("span");
+      dot.className="legend-dot";
+      dot.style.background=b.color;
+      const tx=document.createElement("span");
+      tx.textContent=b.label; // textContent: label из конфига не интерпретируется как разметка
+      el.appendChild(dot);
+      el.appendChild(tx);
       legend.appendChild(el);
     });
   };
@@ -264,8 +270,13 @@ function render(csvText, buttons){
   } else {
     document.getElementById("e-raw").style.display="none";
     dps.slice().sort((a,b)=>b.ts-a.ts).slice(0,100).forEach(d=>{
+      const cells=[d.id.slice(0,8),d.button_id,String(d.ts),fmtTime(d.ts)]; // textContent: без инъекции разметки из данных
       const tr=document.createElement("tr");
-      tr.innerHTML="<td>"+d.id.slice(0,8)+"</td><td>"+d.button_id+"</td><td>"+d.ts+"</td><td>"+fmtTime(d.ts)+"</td>";
+      cells.forEach(c=>{
+        const td=document.createElement("td");
+        td.textContent=c;
+        tr.appendChild(td);
+      });
       tbody.appendChild(tr);
     });
   }

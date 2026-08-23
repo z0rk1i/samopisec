@@ -1,5 +1,6 @@
 (ns app.ui.config
-  (:require [uix.core :refer [$ defui]]
+  (:require [clojure.string :as str]
+            [uix.core :refer [$ defui]]
             [uix.re-frame :refer [use-subscribe]]
             [re-frame.core :as rf]
             [react-native :as rn]
@@ -55,12 +56,13 @@
          ($ rn/Text {:style {:color (:danger t) :font-size 13 :margin-top 8}}
             (i18n/t :add/limit)))
        ($ rn/Pressable {:on-press (fn []
-                                    (when (and (seq *label) (not at-limit?))
-                                      (rf/dispatch [:config/add *label *color])
-                                      (rf/dispatch [:config/commit])
-                                      (set-label! "")
-                                      (set-color! (first colors))))
-                        :style {:background-color (if (or at-limit? (empty? *label))
+                                     (let [label (str/trim *label)]
+                                       (when (and (seq label) (not at-limit?))
+                                         (rf/dispatch [:config/add label *color])
+                                         (rf/dispatch [:config/commit])
+                                         (set-label! "")
+                                         (set-color! (first colors)))))
+                        :style {:background-color (if (or at-limit? (empty? (str/trim *label)))
                                                     (:text-faint t) (:accent t))
                                 :padding 12 :border-radius 8 :margin-top 12
                                 :align-items :center}}
@@ -123,9 +125,10 @@
         [*editing? set-editing!] (uix.core/use-state false)
         record! #(rf/dispatch [:data/record id])
         save! (fn [new-label new-color]
-                (when (seq new-label)
-                  (rf/dispatch [:config/update id {:label new-label :color new-color}])
-                  (rf/dispatch [:config/commit]))
+                (let [label (str/trim new-label)]
+                  (when (seq label)
+                    (rf/dispatch [:config/update id {:label label :color new-color}])
+                    (rf/dispatch [:config/commit])))
                 (set-editing! false))
         remove! (fn []
                   (rn/Alert.alert
