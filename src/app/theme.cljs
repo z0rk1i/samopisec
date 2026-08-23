@@ -16,12 +16,7 @@
    :accent-soft "#eee"
    :success "#43a047"
    :danger "#c62828"
-   :purple "#8e24aa"
-   :remove-bg "#eee"
-   :grid-line "#ddd"
-   :grid-line-soft "#f0f0f0"
-   :chart-label "#999"
-   :chart-time "#bbb"})
+   :remove-bg "#eee"})
 
 (def dark
   {:bg "#000000"
@@ -36,12 +31,7 @@
    :accent-soft "#2c2c2e"
    :success "#30d158"
    :danger "#ff453a"
-   :purple "#bf5af2"
-   :remove-bg "#2c2c2e"
-   :grid-line "#3a3a3c"
-   :grid-line-soft "#2c2c2e"
-   :chart-label "#98989f"
-   :chart-time "#636366"})
+   :remove-bg "#2c2c2e"})
 
 (defn use-theme
   "Палитра текущей темы (light/dark по системной схеме устройства)."
