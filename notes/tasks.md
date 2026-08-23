@@ -201,3 +201,10 @@
 - [x] вкладка «Статистика» + экран ui/stats.cljs удалены (вместе с подписками/селекторами/тестами)
 - [x] per-hour статистика убрана всюду: панель heatmap в Grafana, :per-hour из payload
 - [x] осталось: Графики (offline Grafana) + Кнопки; :today/counts жив для счётчиков на кнопках
+
+## Сессия 2026-08-23 (вечер) — Аудит №2 и рефакторинг фаз 1-3
+- [x] Ф1: merge-семантика :data/loaded + dirty-guard :config/loaded — закрыта гонка «тап вымывается отложенным чтением»
+- [x] Ф2: app.storage-core — чистые drain-plan/merged-read/undo-plan, storage.cljs тонкий адаптер, node-тесты write-path
+- [x] Ф3: живой дашборд — postMessage-обновления без reload, payload в db, постоянный маунт экранов
+- [x] бонус: удалены мёртвые day-start-ms, norm-points/scale-x/pad/chart-h
+- [x] 45 тестов / 177 assertions, kondo 0/0, cljs:release 0 warnings
