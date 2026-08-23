@@ -1,10 +1,9 @@
 (ns app.events.config
   "re-frame: события и fx конфига кнопок — CRUD, грязный флаг, сохранение,
-   обновление виджета. Отделено от app.db по смыслу."
+  обновление виджета. Отделено от app.db по смыслу."
   (:require [re-frame.core :as rf]
             [app.storage :as storage]
-            [app.widget :as widget]
-            [app.selectors :as selectors]))
+            [app.widget :as widget]))
 
 (rf/reg-event-db
  :config/loaded
@@ -24,8 +23,7 @@
  (fn [db [_ id]]
    (-> db
        (assoc :config/dirty true)
-       (assoc :buttons (vec (remove #(= id (:id %)) (:buttons db))))
-       (update :chart selectors/chart-after-button-remove id))))
+       (assoc :buttons (vec (remove #(= id (:id %)) (:buttons db)))))))
 
 (rf/reg-event-db
  :config/update

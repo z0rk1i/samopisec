@@ -1,83 +1,12 @@
 (ns app.selectors
-  "Чистые селекторы данных графиков и дневных счётчиков — без re-frame,
+  "Чистые селекторы данных статистики и дневных счётчиков — без re-frame,
    тестируются отдельно."
-  (:require [app.clock :as clock]
-            [app.math :as math]
-            [app.chart-geom :as geom]))
-
-(defn- decimate-series
-  "Децимация серий до ≤ max-polyline-points. rate/accel выровнены по индексу
-   (accel[i] соответствует rate[i]), поэтому прореживаются ОДИНАКОВЫМ индексным
-   паттерном — иначе кривые разъедутся по оси X."
-  [{:keys [cumulative rate accel] :as series}]
-  (let [idx (geom/decimate (vec (range (count rate))) geom/max-polyline-points)
-        pick (fn [xs] (mapv (fn [i] (nth xs i)) idx))]
-    (assoc series
-           :cumulative (geom/decimate cumulative geom/max-polyline-points)
-           :rate (pick rate)
-           :accel (pick accel))))
+  (:require [app.clock :as clock]))
 
 (defn start-of-day
   "Метка начала текущего дня (локально), мс. Пара к clock/start-of-day."
   [now-ms]
   (clock/start-of-day now-ms))
-
-(defn range-window
-  "Окно [start end] для диапазона range-k, относительно t0 (мс)."
-  [range-k t0]
-  (case range-k
-    :day   [(start-of-day t0) t0]
-    :week  [(- t0 (* 7 math/day-ms)) t0]
-    :month [(- t0 (* 30 math/day-ms)) t0]
-    :all   [0 t0]))
-
-(defn chart-after-button-remove
-  "Chart после удаления кнопки removed-id: если график смотрел на неё, фильтр
-   сбрасывается на :all (иначе серии были бы пустыми без причины), иначе chart
-   без изменений. Чистая функция — используется :config/remove и тестами."
-  [chart removed-id]
-  (if (= removed-id (:button-id chart))
-    (assoc chart :button-id :all)
-    chart))
-
-(defn series
-  "Серии для выбора {:range k :button-id id} из datapoints.
-   Возвращает {:cumulative [..] :rate [..] :accel [..] :start :end}."
-  [chart datapoints t0]
-  (let [{:keys [range button-id]} chart
-        [start end] (range-window range t0)
-        dps (if (= :all button-id)
-              datapoints
-              (filter #(= button-id (:button-id %)) datapoints))
-        ts (mapv :ts dps)]
-    (if (empty? ts)
-      {:cumulative [] :rate [] :accel [] :start start :end end}
-      (-> (math/series ts start end (math/auto-bin-size (- end start)))
-          decimate-series
-          (assoc :start start :end end)))))
-
-(defn series-per-button
-  "Серии по кнопкам для диапазона chart {:range k} — вектор
-   [{:id :label :color :series {:cumulative :rate :accel :start :end}}]
-   для каждой кнопки из buttons, без суммирования. Пустые серии сохраняются
-   (для легенды), но с пустыми массивами."
-  [chart datapoints buttons t0]
-  (let [{:keys [range]} chart
-        [start end] (range-window range t0)
-        bin-size (math/auto-bin-size (- end start))]
-    (mapv (fn [{:keys [id label color]}]
-            (let [ts (->> datapoints
-                          (filter #(= id (:button-id %)))
-                          (mapv :ts))]
-              {:id id
-               :label label
-               :color color
-               :series (if (empty? ts)
-                         {:cumulative [] :rate [] :accel [] :start start :end end}
-                         (-> (math/series ts start end bin-size)
-                             decimate-series
-                             (assoc :start start :end end)))}))
-          buttons)))
 
 (defn today-counts
   "Счётчики нажатий за текущий календарный день: {:total n :by-button {id n}}."

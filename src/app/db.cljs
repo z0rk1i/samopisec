@@ -1,8 +1,8 @@
 (ns app.db
   "re-frame: состояние приложения (default-db) и низкоуровневые события/подписки
    жизни цикла: инициализация, загрузка из файлов, навигация по экранам, ошибки
-   хранилища. Логика данных/конфига/графиков вынесена в app.events.* (см.
-   app.events.data, app.events.config, app.events.chart)."
+   хранилища. Логика данных/конфига вынесена в app.events.* (см.
+   app.events.data, app.events.config)."
   (:require [re-frame.core :as rf]
             [app.clock :as clock]
             [app.storage :as storage]
@@ -14,11 +14,7 @@
    :buttons []
    :datapoints []
    :config/dirty false
-   :storage/error nil
-   :chart {:range :day
-           :button-id :all
-           :show-rate false
-           :show-accel false}})
+   :storage/error nil})
 
 (rf/reg-event-db
  :app/init
@@ -89,3 +85,8 @@
  :stats/heatmap
  (fn [db _]
    (selectors/per-hour-heatmap (:datapoints db))))
+
+(rf/reg-sub
+ :today/counts
+ (fn [db _]
+   (selectors/today-counts (:datapoints db) (clock/now-ms))))

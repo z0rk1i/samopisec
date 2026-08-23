@@ -8,7 +8,6 @@
             [app.db]
             [app.events.data]
             [app.events.config]
-            [app.events.chart]
             [app.theme :as theme]
             [app.storage :as storage]
             [app.ui.config :as config-screen]
