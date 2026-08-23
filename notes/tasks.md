@@ -187,3 +187,12 @@
 - [x] удалены мёртвые ui/charts.cljs, timeline.cljs(+test), :charts/* i18n
 - [x] lint 0/0, 43 теста / 174 assertions pass, compile app 0 warnings
 - [ ] живой WebView на эмуляторе/устройстве (release APK)
+
+## Сессия 2026-08-23 — Рефакторинг по аудиту (фазы 1–4)
+- [x] Ф1: чистка мёртвого кода (sync.cljs, vestigial :chart-слой, тема/i18n), паритет-тест offline_html, textContent+trim
+- [x] Ф2: единая математика производных — app.grafana-series (CLJS) считает всё, HTML рендерит готовое; use-memo источника WebView
+- [x] Ф3: ADR-0024 spill-file: Kotlin/Swift пишут тапы в datapoints-spill.csv, приложение дренирует под очередью; undo добивает архив
+- [x] E2E на эмуляторе Android 16 (release APK): ACTION_TAP → spill → запуск → main CSV, spill удалён
+- [x] deps.edn: clojurescript 1.11.132 (после очистки /tmp/m2 shadow-cljs падал)
+- [ ] живая проверка iOS (нужен team для App Group, см. ADR-0011)
+- [ ] ручной QA undo на устройстве после компакции (>50k точек)
