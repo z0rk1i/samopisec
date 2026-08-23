@@ -31,10 +31,14 @@ class TapWidgetProvider : AppWidgetProvider() {
     fun configFile(context: Context): File =
       File(context.filesDir, "config.json")
 
-    fun datapointsFile(context: Context): File =
-      File(context.filesDir, "datapoints.csv")
+    // ADR-0024: тапы виджет пишут ТОЛЬКО в spill-файл (append). Приложение
+    // переносит строки в datapoints.csv под своей очередью записи — основной
+    // файл однописательный, окно гонки app↔виджет исчезло. Header-fix старого
+    // формата не нужен: дренаж читает spill парсером, устойчивым к его отсутствию.
+    fun spillFile(context: Context): File =
+      File(context.filesDir, "datapoints-spill.csv")
 
-    private const val CSV_HEADER = "id,button_id,ts"
+    private const val SPILL_HEADER = "id,button_id,ts"
 
     fun vibrate(context: Context) {
       val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
@@ -159,17 +163,9 @@ class TapWidgetProvider : AppWidgetProvider() {
   }
 
   private fun appendDatapoint(context: Context, buttonId: String) {
-    val file = datapointsFile(context)
-    if (!file.exists()) {
-      file.writeText("$CSV_HEADER\n")
-    } else if (file.length() == 0L) {
-      file.writeText("$CSV_HEADER\n")
-    } else {
-      val firstLine = try { file.bufferedReader().readLine() } catch (e: Exception) { null }
-      if (firstLine != CSV_HEADER) {
-        val old = try { file.readText() } catch (e: Exception) { "" }
-        file.writeText("$CSV_HEADER\n$old")
-      }
+    val file = spillFile(context)
+    if (!file.exists() || file.length() == 0L) {
+      file.writeText("$SPILL_HEADER\n")
     }
     val id = UUID.randomUUID().toString()
     val ts = System.currentTimeMillis()
