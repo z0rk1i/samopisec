@@ -3,12 +3,14 @@
    Датaпоинты — CSV (id,button_id,ts), конфиг — JSON. iOS: общий App Group
    контейнер (виджет WidgetKit читает только оттуда); Android: document dir
    (= filesDir, оттуда же читает TapWidgetProvider). Миграция: при наличии
-   datapoints.jsonl он конвертируется в CSV."
-  (:require [clojure.string :as str]
-            [app.clock :as clock]
+   datapoints.jsonl он конвертируется в CSV.
+   Логика переходов файлов (дренаж, undo, merge чтения) — чистая, в
+   app.storage-core; здесь только FS-адаптер и очередь записи."
+  (:require [app.clock :as clock]
             [app.csv :as csv]
             [app.jsonl :as jsonl]
             [app.contract :as contract]
+            [app.storage-core :as core]
             [app.compact :as compact]
             [re-frame.core :as rf]
             [react-native :as rn]
@@ -164,28 +166,26 @@
    Вызывается ТОЛЬКО внутри write-queue. Порядок «append в main → delete spill»
    устойчив к крашу: недобитые строки останутся в spill до следующего дренажа,
    а возможный дубль после краша между append и delete гасится дедупликацией
-   по :id при чтении (contract/dedupe-by-id)."
+   по :id при чтении."
   []
   (let [sp (spill-file)]
     (when (.-exists sp)
-      (let [rows (csv/parse-csv (.textSync sp))]
-        (when (seq rows)
+      (let [text (.textSync sp)]
+        (when-let [{:keys [append-text]} (core/drain-plan text)]
           (let [f (dp-file)]
             (when-not (.-exists f)
               (.create f)
               (.write f (str csv/header "\n")))
-            (.write f (csv/serialize-rows rows) #js {:append true})))
+            (.write f append-text #js {:append true})))
         (.delete sp)))))
 
 (defn read-datapoints
   "Возвращает Promise<{:dps [datapoint] :main-count n}>.
-   dps — отсортированные по времени поинты: основной файл + архив + остаток
-   spill, дедуплицированные по :id (страховка от двойного дренажа), чтобы
-   диапазон «всё» и статистика оставались полными. main-count — число строк
-   только основного файла: критерий компакции, не искажённый архивом.
-   Читает через write-queue — снимок после всех поставленных записей.
-   Невалидные записи отбрасываются. Выполняет миграцию jsonl->csv и дренаж
-   spill виджетов."
+   dps — отсортированные по времени поинты основного файла и архива,
+   дедуплицированные по :id; main-count — число строк основного файла:
+   критерий компакции, не искажённый архивом. Читает через write-queue —
+   снимок после всех поставленных записей (дренаж spill уже выполнен).
+   Невалидные записи отбрасываются. Выполняет миграцию jsonl->csv."
   []
   (enqueue!
    (fn []
@@ -194,13 +194,7 @@
      (let [main (dp-file)
            arch (dp-archive-file)]
        (-> (js/Promise.all #js [(read-csv-file main) (read-csv-file arch)])
-           (.then (fn [[a b]]
-                    {:dps (->> (concat a b)
-                               contract/dedupe-by-id
-                               contract/normalize-datapoints
-                               (sort-by :ts)
-                               vec)
-                     :main-count (count a)}))
+           (.then (fn [[a b]] (core/merged-read a b)))
            (.catch (fn [e]
                      (report-error! "read-datapoints" e)
                      {:dps [] :main-count 0})))))))
@@ -218,48 +212,45 @@
        (.write f (str (csv/serialize-row dp) "\n")
                #js {:append true})))))
 
-(defn- delete-last-from-archive!
-  "Снимает последнюю строку архива (fallback undo после компакции, когда
-   основной файл пуст). Возвращает Promise<dp-or-nil>."
-  []
-  (let [a (dp-archive-file)]
-    (if (.-exists a)
-      (-> (.text a)
-          (.then (fn [text]
-                   (let [{:keys [lines last]} (csv/split-last text)]
-                     (when last
-                       (if (seq lines)
-                         (replace-atomic! a (str (str/join "\n" lines) "\n"))
-                         (.delete a))
-                       last)))))
-      (js/Promise.resolve nil))))
+(defn- delete-last-from
+  "Снимает последнюю строку файла f (по чистому плану undo-plan): атомарная
+   замена, удаление исчерпанного файла или nil. Возвращает Promise<dp-or-nil>."
+  [f]
+  (if (.-exists f)
+    (-> (.text f)
+        (.then (fn [text]
+                 (let [plan (core/undo-plan text)]
+                   (when-not (= :fallback-archive plan)  ; архивный случай: nil
+                     (case (:type plan)
+                       :rewrite (replace-atomic! f (:content plan))
+                       :delete-file (.delete f))
+                     (:removed plan))))))
+    (js/Promise.resolve nil)))
 
 (defn delete-last-datapoint!
   "Удаляет ПОСЛЕДНИЙ дата-поинт (для undo): сначала дренажует spill виджетов —
    тап с виджета тоже кандидат на «последний», которого нет в db до перезагрузки;
-   затем снимает последнюю строку основного файла; если основной пуст или его
-   нет — из архива (undo работает и после компакции). Удаление по последней
-   строке файла, а не по последнему поинту db — закрывает гонку undo после тапа
-   с виджета. Возвращает Promise<dp-or-nil> (nil — данных больше нет или
-   последняя строка битая; в этом случае файл не трогается)."
+   затем снимает последнюю строку основного файла; если основной не дал поинт —
+   из архива (undo работает и после компакции). Удаление по последней строке
+   файла, а не по последнему поинту db — закрывает гонку undo после тапа с
+   виджета. Возвращает Promise<dp-or-nil> (nil — данных больше нет)."
   []
   (enqueue!
    (fn []
      (try (drain-spill!) (catch :default e (report-error! "drain-spill" e)))
-     (let [f (dp-file)]
+     (let [f (dp-file)
+           from-archive #(delete-last-from (dp-archive-file))]
        (if (.-exists f)
          (-> (.text f)
              (.then (fn [text]
-                      (let [{:keys [lines last]} (csv/split-last text)]
-                        (if last
-                          (do
-                            ;; lines уже содержит header если был, иначе без
-                            (if (seq lines)
-                              (replace-atomic! f (str (str/join "\n" lines) "\n"))
-                              (.delete f))
-                            last)
-                          (delete-last-from-archive!))))))
-         (delete-last-from-archive!))))))
+                      (let [plan (core/undo-plan text)]
+                        (case (:type plan)
+                          :rewrite (do (replace-atomic! f (:content plan))
+                                       (:removed plan))
+                          :delete-file (do (.delete f)
+                                           (:removed plan))
+                          (from-archive))))))
+         (from-archive))))))
 
 (def ^:const compact-threshold
   "Порог числа строк datapoints.csv: при превышении запускается компакция —
