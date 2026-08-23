@@ -28,14 +28,6 @@
                          :color (nth fallback-colors i (peek fallback-colors))}))
          vec)))
 
-(defn- per-hour
-  "24 счётчика нажатий по локальным часам суток."
-  [dps]
-  (reduce (fn [acc dp]
-            (update acc (.getHours (js/Date. (:ts dp))) inc))
-          (vec (repeat 24 0))
-          dps))
-
 (defn- curves-per-button
   "Кривые одной кнопки {:id :label :color :cumulative :p1 :p2}. Окно и бины —
    глобальные (все кнопки выровнены по одной оси X)."
@@ -63,7 +55,6 @@
     :window {:t0 :t1}
     :buttons [{:id :label :color}]
     :totals {id n}
-    :per-hour [24]
     :recent [[id button-id ts] ...] — ≤100 последних, свежие сверху
     :curves [{:id :label :color
               :cumulative [{:t :v}]   — накопленная кривая
@@ -77,7 +68,6 @@
        :window {:t0 0 :t1 0}
        :buttons []
        :totals {}
-       :per-hour (vec (repeat 24 0))
        :recent []
        :curves []}
       (let [sorted (vec (sort-by :ts dps))
@@ -90,7 +80,6 @@
          :window {:t0 t0 :t1 t1}
          :buttons (mapv #(select-keys % [:id :label :color]) btns)
          :totals (frequencies (keep :button-id dps))
-         :per-hour (per-hour dps)
          :recent (->> sorted reverse (take 100)
                       (mapv (fn [{:keys [id button-id ts]}] [id button-id ts])))
          :curves (keep #(curves-per-button % dps (/ bin math/hour-ms) bins)

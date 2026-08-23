@@ -38,7 +38,6 @@
   <div class="panel" id="p-p1"><h2>Производная 1 <span class="unit">нажатий/час</span></h2><div id="legend-p1" class="legend"></div><canvas id="c-p1" width="600" height="220"></canvas><div id="e-p1" class="empty" style="display:none">нет данных</div></div>
   <div class="panel" id="p-p2"><h2>Производная 2 <span class="unit">Δ нажатий/час²</span></h2><div id="legend-p2" class="legend"></div><canvas id="c-p2" width="600" height="220"></canvas><div id="e-p2" class="empty" style="display:none">нет данных</div></div>
   <div class="panel" id="p-totals"><h2>Totals per button</h2><canvas id="c-totals" width="600" height="220"></canvas><div id="e-totals" class="empty" style="display:none">нет данных</div></div>
-  <div class="panel" id="p-hour"><h2>Per-hour heatmap (0–23)</h2><canvas id="c-hour" width="600" height="220"></canvas><div id="e-hour" class="empty" style="display:none">нет данных</div></div>
   <div class="panel" id="p-raw"><h2>Raw CSV</h2><div style="max-height:220px;overflow:auto"><table id="t-raw"><thead><tr><th>id</th><th>button_id</th><th>ts</th><th>time</th></tr></thead><tbody></tbody></table></div><div id="e-raw" class="empty" style="display:none">нет данных</div></div>
 </div>
 <script>
@@ -183,16 +182,6 @@ function render(S){
             btns.map(b=>b.label),
             btns.map(b=>totals[b.id]||0),
             btns.map(b=>b.color));
-  }
-  // per-hour
-  if(!points){ show("c-hour",false); show("e-hour",true); }
-  else {
-    show("c-hour",true); show("e-hour",false);
-    const ph=S.perHour||[];
-    drawBar(document.getElementById("c-hour"),
-            ph.map((_,i)=>String(i)),
-            ph,
-            ph.map(()=>"#ff9830"));
   }
 }
 function init(){

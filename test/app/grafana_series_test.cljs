@@ -23,12 +23,10 @@
       (is (zero? (:points p)))
       (is (= [] (:curves p)))
       (is (= {} (:totals p)))
-      (is (= [] (:recent p)))
-      (is (= 24 (count (:per-hour p))))
-      (is (every? zero? (:per-hour p))))))
+      (is (= [] (:recent p))))))
 
 (deftest payload-window-totals-test
-  (testing "окно, totals, per-hour, recent"
+  (testing "окно, totals, recent"
     (let [p (gs/series-payload (fixture-dps) buttons)]
       (is (= 4 (:points p)))
       (is (= (+ base 1000) (get-in p [:window :t0]))
@@ -36,7 +34,6 @@
       (is (= (+ base (* 2 H) 500) (get-in p [:window :t1]))
           "последний тап старше t0+час — окно по нему")
       (is (= {"b1" 3 "b2" 1} (:totals p)))
-      (is (= 4 (reduce + (:per-hour p))) "сумма per-hour == число тапов")
       (is (= ["g" "e" "c" "a"] (mapv first (:recent p)))
           "recent — свежие сверху")
       (is (= 2 (count (:curves p)))))))
