@@ -24,11 +24,3 @@
   (let [d (js/Date. now-ms)]
     (.setHours d 0 0 0 0)
     (.getTime d)))
-
-(defn day-start-ms
-  "Начало календарного дня с отступом days от now-ms (0 = сегодня)."
-  [now-ms days]
-  (let [d (js/Date. now-ms)]
-    (.setHours d 0 0 0 0)
-    (.setDate d (- (.getDate d) days))
-    (.getTime d)))

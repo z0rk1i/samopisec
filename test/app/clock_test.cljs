@@ -20,16 +20,3 @@
       (is (= 16 (.getDate sod)))
       (is (= 0 (.getHours sod)))
       (is (= 0 (.getMinutes sod))))))
-
-(deftest day-start-ms-test
-  (testing "0 = сегодня, 1 = вчера"
-    (let [t (js/Date. 2026 7 16 14 37 0)
-          today (js/Date. (clock/day-start-ms (.getTime t) 0))
-          yesterday (js/Date. (clock/day-start-ms (.getTime t) 1))]
-      (is (= 16 (.getDate today)))
-      (is (= 15 (.getDate yesterday)))
-      (is (= 0 (.getHours yesterday)))))
-  (testing "идемпотентность: start-of-day = day-start-ms 0"
-    (let [t (js/Date. 2026 7 16 14 37 0)]
-      (is (= (clock/start-of-day (.getTime t))
-             (clock/day-start-ms (.getTime t) 0))))))
